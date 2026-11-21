@@ -1,18 +1,217 @@
 {
-  "_status": "unmeasured — no splits have been generated yet",
-  "_note": "Written by scripts/make_splits.py. Committed on purpose: this is the leakage record.",
-  "generated_at": null,
-  "git_sha": null,
-  "seed": null,
-  "splits": {
-    "train": null,
-    "train_rl": null,
-    "E1": null,
-    "E2": null,
-    "E3": null,
-    "E4": null
+  "counts": {
+    "E1": 100,
+    "E2": 100,
+    "E3": 100,
+    "E4": 100,
+    "train": 100
   },
-  "templates_by_split": {},
-  "dedupe": {"rule": null, "ngram_overlap_threshold": null},
-  "files": {}
+  "dedupe": {
+    "e4_near_verbatim_threshold": 0.9,
+    "rule": "content fingerprint (template, domain, brief, pre_state, contract fields)",
+    "split_seed_bases_disjoint": true
+  },
+  "files": {
+    "E1.jsonl": "f0f41f28edb35c0a360b74857a1a17c915a37571ea96640d126830048067c288",
+    "E2.jsonl": "03cbb29225650069b792848e960d094f072c553970ca72c377ec0b5cc3b3d26d",
+    "E3.jsonl": "8ff5cef111b0451da37caea39e8bc6fed2d8bcf2e8477ace74cc3d7c92220576",
+    "E4.jsonl": "bac1590a6b72097a4540567502b892ea71696398b71f8c3457c4e55ec8f893c0",
+    "train.jsonl": "fd3240fe14e6626fbf7fe408643f9e72b324a0fc6195ba0d29877e2524f10c09",
+    "train_rl.jsonl": "406551d947c2e1781cc4d3e76bb90d9e1d0524b9ee505d83ebf4c2c90f98cf2f"
+  },
+  "generated_by": "scripts/make_splits.py",
+  "generator_fingerprint": "ebe3a4c20242bdd468715a82c8adb2fc",
+  "negative_band": [
+    0.1,
+    0.25
+  ],
+  "negative_fraction": {
+    "E1": 0.17,
+    "train": 0.17
+  },
+  "plan": {
+    "E1": [
+      [
+        "kyc_clean_pass",
+        40,
+        100000
+      ],
+      [
+        "kyc_high_risk_approve",
+        22,
+        100100
+      ],
+      [
+        "kyc_shortcut_probe",
+        21,
+        100200
+      ],
+      [
+        "kyc_sanctions_hit",
+        4,
+        100300
+      ],
+      [
+        "kyc_pep_hit",
+        4,
+        100400
+      ],
+      [
+        "negative_no_action_case_closed",
+        3,
+        100500
+      ],
+      [
+        "negative_decline_duplicate",
+        3,
+        100600
+      ],
+      [
+        "negative_escalate_missing_evidence",
+        3,
+        100700
+      ]
+    ],
+    "E2": [
+      [
+        "analytics_below_threshold_approve",
+        40,
+        200000
+      ],
+      [
+        "analytics_over_threshold",
+        30,
+        200100
+      ],
+      [
+        "analytics_below_threshold_clear",
+        30,
+        200200
+      ]
+    ],
+    "E3": [
+      [
+        "kyc_adverse_media_injection",
+        40,
+        300000
+      ],
+      [
+        "kyc_shortcut_probe",
+        40,
+        300100
+      ],
+      [
+        "negative_escalate_missing_evidence",
+        20,
+        300200
+      ]
+    ],
+    "E4": [
+      [
+        "kyc_clean_pass",
+        50,
+        400000
+      ],
+      [
+        "kyc_high_risk_approve",
+        30,
+        400100
+      ],
+      [
+        "kyc_shortcut_probe",
+        20,
+        400200
+      ]
+    ],
+    "train": [
+      [
+        "kyc_clean_pass",
+        40,
+        10000
+      ],
+      [
+        "kyc_high_risk_approve",
+        22,
+        10100
+      ],
+      [
+        "kyc_shortcut_probe",
+        21,
+        10200
+      ],
+      [
+        "kyc_sanctions_hit",
+        4,
+        10300
+      ],
+      [
+        "kyc_pep_hit",
+        4,
+        10400
+      ],
+      [
+        "negative_no_action_case_closed",
+        3,
+        10500
+      ],
+      [
+        "negative_decline_duplicate",
+        3,
+        10600
+      ],
+      [
+        "negative_escalate_missing_evidence",
+        3,
+        10700
+      ]
+    ]
+  },
+  "split_definitions": {
+    "E1": "held-out data, templates already seen in training",
+    "E2": "novel templates, never seen in training",
+    "E3": "adversarial traps: injected instruction, tempting shortcut, unsolvable case",
+    "E4": "paraphrase variants of known templates"
+  },
+  "templates_by_split": {
+    "E1": [
+      "kyc_clean_pass",
+      "kyc_high_risk_approve",
+      "kyc_pep_hit",
+      "kyc_sanctions_hit",
+      "kyc_shortcut_probe",
+      "negative_decline_duplicate",
+      "negative_escalate_missing_evidence",
+      "negative_no_action_case_closed"
+    ],
+    "E2": [
+      "analytics_below_threshold_approve",
+      "analytics_below_threshold_clear",
+      "analytics_over_threshold"
+    ],
+    "E3": [
+      "kyc_adverse_media_injection",
+      "kyc_shortcut_probe",
+      "negative_escalate_missing_evidence"
+    ],
+    "E4": [
+      "kyc_clean_pass",
+      "kyc_high_risk_approve",
+      "kyc_shortcut_probe"
+    ],
+    "train": [
+      "kyc_clean_pass",
+      "kyc_high_risk_approve",
+      "kyc_pep_hit",
+      "kyc_sanctions_hit",
+      "kyc_shortcut_probe",
+      "negative_decline_duplicate",
+      "negative_escalate_missing_evidence",
+      "negative_no_action_case_closed"
+    ]
+  },
+  "train_rl_filtered": false,
+  "train_rl_note": "unfiltered copy; Phase 5 narrows it to scenarios the SFT model solves 10-90% of the time. Every row carries rl_filtered=false until then.",
+  "training_splits": [
+    "train"
+  ]
 }

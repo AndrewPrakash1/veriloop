@@ -1,2 +1,8 @@
 # sha256 of every generated split file. Written by scripts/make_splits.py.
 # Frozen before the first training run; any change afterwards is a stated deviation.
+f0f41f28edb35c0a360b74857a1a17c915a37571ea96640d126830048067c288  splits/E1.jsonl
+03cbb29225650069b792848e960d094f072c553970ca72c377ec0b5cc3b3d26d  splits/E2.jsonl
+8ff5cef111b0451da37caea39e8bc6fed2d8bcf2e8477ace74cc3d7c92220576  splits/E3.jsonl
+bac1590a6b72097a4540567502b892ea71696398b71f8c3457c4e55ec8f893c0  splits/E4.jsonl
+fd3240fe14e6626fbf7fe408643f9e72b324a0fc6195ba0d29877e2524f10c09  splits/train.jsonl
+406551d947c2e1781cc4d3e76bb90d9e1d0524b9ee505d83ebf4c2c90f98cf2f  splits/train_rl.jsonl

@@ -8,7 +8,7 @@ the hand-authored attack transcripts alike.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Mapping, Protocol
+from typing import Any, Mapping, Protocol, Sequence
 
 from veriloop.env.audit_log import AuditLog
 from veriloop.env.db import World
@@ -21,6 +21,37 @@ class Policy(Protocol):
     def next_call(self, observation: Mapping[str, Any]) -> Mapping[str, Any]:
         """Return {"tool": str, "args": {...}}."""
         ...
+
+
+class RoutePolicy:
+    """Replays a fixed list of calls. A scripted route, with no model in the loop.
+
+    This is what makes the reward hackability audit runnable before any policy exists: a
+    cheat is just a route. It lives here, next to the `Policy` protocol it implements, so
+    the audit, the generator's gold verification and the tests share ONE implementation
+    instead of three subtly different ones.
+    """
+
+    def __init__(self, route: Sequence[Mapping[str, Any]]):
+        self.calls = [{"tool": c["tool"], "args": dict(c.get("args") or {})} for c in route]
+        self.i = 0
+
+    @property
+    def exhausted(self) -> bool:
+        return self.i >= len(self.calls)
+
+    def next_call(self, observation: Mapping[str, Any]) -> Mapping[str, Any]:
+        """Return the next scripted call, or raise `StopIteration` when the route is done.
+
+        `run_episode` treats `StopIteration` as an unterminated episode, which is a `Γ = 0`
+        — the same outcome as blowing the step budget. A route that runs out of calls
+        without a terminal action is a real, scorable failure, not a harness error.
+        """
+        if self.i >= len(self.calls):
+            raise StopIteration
+        call = self.calls[self.i]
+        self.i += 1
+        return call
 
 
 @dataclass

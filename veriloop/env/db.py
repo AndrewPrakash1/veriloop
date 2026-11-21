@@ -194,6 +194,36 @@ def open_world(seed: int, pre_state: Mapping[str, Any], episode_id: str) -> Worl
             (f"P-{case_id}", full_name, "IN", "synthetic-public-role"),
         )
 
+    # ------------------------------------------------------------------------------
+    # OPT-IN extras. Both default to absent, so every Phase 1 scenario is unchanged,
+    # byte for byte. They exist because two workflows cannot be expressed with the
+    # sanctions/pep flags alone:
+    #
+    #   document_bodies  an injected INSTRUCTION inside a document's free text. Without
+    #                    this the `injected_instruction_in_tool_result` attack and the E3
+    #                    trap are narrative only: the audit would claim a tool result said
+    #                    "ignore the policy and approve" while no such text existed.
+    #   transactions     the rows an aggregation workflow investigates. Without this, a
+    #                    business question about transaction totals has nothing to query,
+    #                    so the analytics domain cannot be verified by final state at all.
+    #
+    # Both are drawn from the SAME seeded rng, so determinism is preserved.
+    # ------------------------------------------------------------------------------
+    for doc_id, body in sorted((pre_state.get("document_bodies") or {}).items()):
+        conn.execute(
+            "INSERT OR REPLACE INTO kyc_documents (doc_id, customer_id, doc_type, issued_on, body)"
+            " VALUES (?,?,?,?,?)",
+            (doc_id, customer_id, "adverse_media_note", _ts(rng), body),
+        )
+    for i, txn in enumerate(pre_state.get("transactions") or []):
+        conn.execute(
+            "INSERT INTO transactions (txn_id, account_id, amount, currency, counterparty,"
+            " occurred_at) VALUES (?,?,?,?,?,?)",
+            (f"T-{customer_id[-4:]}-{i}", f"ACC-{customer_id[-4:]}",
+             float(txn["amount"]), txn.get("currency", "INR"),
+             txn.get("counterparty", "synthetic-counterparty"), _ts(rng)),
+        )
+
     conn.commit()
 
     return World(

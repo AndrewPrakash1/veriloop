@@ -166,6 +166,31 @@ def _assertion_holds(assertion, snapshot: Mapping[str, list[dict]], pre: Mapping
 
 
 # --------------------------------------------------------------------------- terms --------
+def _constraint_satisfied(constraint: CallConstraint, pre: Mapping[str, Any],
+                          log: AuditLog) -> bool:
+    """Did the episode satisfy one mandatory constraint?
+
+    AN EMPTY `args` MAPPING MEANS **TOOL PRESENCE ONLY** — "this tool must be called", not
+    "called with no arguments". That distinction matters for a free-form tool such as
+    `run_sql`: no model can guess a query string, so constraining one would make the
+    contract unwinnable in practice while still validating and still letting the gold route
+    score 1.0. The gold call carries real arguments through `gold_args`; the CONSTRAINT does
+    not name them.
+
+    Spelled out here, at the point of use, because a second implementation of this rule got
+    it wrong on the first attempt — it demanded a call whose canonical arguments were
+    literally `{}` and reported a phantom `M = 0.667`. The independent-re-derivation test in
+    `tests/test_gen_splits.py` is what caught it.
+    """
+    try:
+        wanted = resolve(dict(constraint.args), pre)
+    except (KeyError, ValueError):
+        return False
+    if not wanted:
+        return log.has_call(constraint.tool)
+    return log.has_call(constraint.tool, wanted)
+
+
 def _describe(constraint: CallConstraint) -> str:
     if constraint.args:
         return (f"{constraint.tool}("
@@ -215,15 +240,8 @@ def compute_terms(
             continue                        # dropped, not failed
         required.append(c)
 
-    missing: list[str] = []
-    for c in required:
-        try:
-            wanted = resolve(dict(c.args), pre)
-        except (KeyError, ValueError):
-            missing.append(_describe(c))
-            continue
-        if not log.has_call(c.tool, wanted or None):
-            missing.append(_describe(c))
+    missing: list[str] = [_describe(c) for c in required
+                           if not _constraint_satisfied(c, pre, log)]
 
     M = 1.0 if not required else (len(required) - len(missing)) / len(required)
 

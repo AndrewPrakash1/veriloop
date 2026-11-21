@@ -18,7 +18,20 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 ALLOWED = {
     "veriloop.env":       {"veriloop.env"},   # a package may always import itself
     "veriloop.contracts": {"veriloop.contracts"},
-    "veriloop.gen":       {"veriloop.contracts", "veriloop.env", "veriloop.gen"},
+    # gen's two allowed reaches outward, both narrow and both deliberate:
+    #
+    #   veriloop.eval           `synth` replays and scores every gold route before accepting a
+    #                           scenario. That is Phase 3's most important gate, and a blanket
+    #                           ban would forbid it.
+    #   veriloop.rewards.terms  the EXACT module, not the package. `CANONICAL_CHECKS` defines
+    #                           what `all_checks_recorded` MEANS, and the generator has to know
+    #                           the meaning of the predicates it writes. Note this is the
+    #                           module, so `rewards.state_verified` is still out of reach.
+    #
+    # The rule that actually protects the design is asserted separately: TEMPLATES must never
+    # see rewards or eval at all, module level or deferred.
+    "veriloop.gen":       {"veriloop.contracts", "veriloop.env", "veriloop.gen",
+                           "veriloop.eval", "veriloop.rewards.terms"},
     "veriloop.rewards":   {"veriloop.contracts", "veriloop.env", "veriloop.rewards"},
     "veriloop.eval":      {"veriloop.contracts", "veriloop.env", "veriloop.rewards", "veriloop.eval"},
     # heal/ reads the reward terms to classify a failure and reads eval to score a round —
@@ -63,6 +76,28 @@ def test_world_does_not_import_rewards() -> None:
     bad = [str(p.relative_to(ROOT)) for p in env.rglob("*.py")
            if any("rewards" in m for m in _veriloop_imports(p))]
     assert not bad, f"env/ imports rewards/ in: {bad}"
+
+
+def test_templates_never_see_the_scorer() -> None:
+    """A TEMPLATE may not import `rewards` or `eval`, at module level or deferred.
+
+    This is the narrow, load-bearing version of the dependency rule. The risk is not that the
+    generator *verifies* its output — that is desirable, and `synth` does it deliberately. The
+    risk is that a TEMPLATE can see the scorer, because then a template can be shaped until it
+    scores well, and the scenarios stop being an independent draw of the world.
+
+    `ast.walk` sees deferred imports too, so a local `from veriloop.rewards import ...` inside
+    a template function is caught, not excused.
+    """
+    templates_dir = ROOT / "veriloop" / "gen" / "templates"
+    offenders = []
+    for py in templates_dir.rglob("*.py"):
+        for mod in _veriloop_imports(py):
+            if mod.startswith("veriloop.rewards") or mod.startswith("veriloop.eval"):
+                offenders.append(f"{py.relative_to(ROOT)} imports {mod}")
+    assert not offenders, (
+        "a template can see the scorer, so it can be tuned to it:\n  " + "\n  ".join(offenders)
+    )
 
 
 def test_reward_signature_never_sees_model_text() -> None:

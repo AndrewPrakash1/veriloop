@@ -16,9 +16,8 @@ ci:               ## THE GATE. Grows one phase at a time as each lands.
 	@$(PY) -m pytest tests/test_resolve.py tests/test_contracts.py -m phase2 -p no:cacheprovider
 	@$(PY) -m pytest tests/test_reward_terms.py tests/test_reward_hackability.py -m phase2 -p no:cacheprovider
 	@$(PY) scripts/run_audit.py --out /tmp/veriloop-audit.json
-	# ADD YOUR PHASE HERE when it lands, in the same PR. e.g.:
-	# @$(PY) -m pytest tests/test_gen_splits.py -m phase3 -p no:cacheprovider
-
+	@$(PY) -m pytest tests/test_gen_splits.py -m phase3 -p no:cacheprovider
+	@$(PY) scripts/make_splits.py --out /tmp/veriloop-splits-check
 test-imports:     ## structural tests — always green, catch the design bugs
 	@$(PY) -m pytest tests/test_imports.py -v -p no:cacheprovider
 

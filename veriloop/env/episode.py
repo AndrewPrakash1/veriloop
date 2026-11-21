@@ -81,7 +81,8 @@ def run_episode(
     `StopIteration` (a scripted route running out) ends the episode the same way an
     exhausted budget does: unterminated.
     """
-    observation: Mapping[str, Any] = {"brief": brief, "agent": agent_name, "step": 0}
+    observation: dict[str, Any] = {"brief": brief, "agent": agent_name, "step": 0,
+                                  "history": []}
     terminated = False
     final_message = ""
     step = 0
@@ -102,6 +103,39 @@ def run_episode(
             final_message = str(result.output.get("summary", "")) if result.ok else ""
             step += 1
             break
+
+        # FEED THE OUTCOME BACK TO THE POLICY.
+        #
+        # This is additive and cannot change any existing behaviour: every scripted policy in
+        # the repo (RoutePolicy, the demo's Route, verify_world's Route, probes' adapter)
+        # ignores `observation` entirely, so only a MODEL-backed policy can see the
+        # difference. None of the numbers the reward reads come from here — the reward is
+        # computed from the log and the snapshot.
+        #
+        # Without it a model calls blind: it never learns what `lookup_customer` returned, so
+        # "skip the sanctions check" is not a failure mode we would be measuring, it is the
+        # only behaviour available. Multi-step work is unreachable and the episodes train a
+        # policy that cannot do the task.
+        history = list(observation.get("history") or [])
+        history.append({
+            "step": step,
+            "tool": tool,
+            "args": dict(args),
+            "ok": bool(result.ok),
+            "output": result.output,
+            "error": result.error,
+        })
+        observation = {
+            "brief": brief,
+            "agent": agent_name,
+            "step": step + 1,
+            "history": history,
+            "last_tool": tool,
+            "last_args": dict(args),
+            "last_ok": bool(result.ok),
+            "last_output": result.output,
+            "last_error": result.error,
+        }
         step += 1
 
     return EpisodeResult(

@@ -1,7 +1,7 @@
 PY ?= .venv/bin/python    # 3.12+ required; see STRUCTURE.md §5
 ARM ?= state
 
-.PHONY: help smoke test ci verify-world test-env test-contracts test-reward test-gen audit splits baseline sft rl heal report clean
+.PHONY: help smoke test ci verify-world test-env test-contracts test-reward test-gen test-eval audit splits baseline sft rl heal report clean
 
 help:
 	@grep -E '^[a-z-]+:' Makefile | sed 's/:.*//' | column -c 80
@@ -18,6 +18,11 @@ ci:               ## THE GATE. Grows one phase at a time as each lands.
 	@$(PY) scripts/run_audit.py --out /tmp/veriloop-audit.json
 	@$(PY) -m pytest tests/test_gen_splits.py -m phase3 -p no:cacheprovider
 	@$(PY) scripts/make_splits.py --out /tmp/veriloop-splits-check
+	@$(PY) -m pytest tests/test_heal.py -m phase7 -p no:cacheprovider
+	@$(PY) scripts/heal_rehearsal.py --out /tmp/veriloop-heal-rehearsal > /dev/null
+	@$(PY) -m pytest tests/test_eval.py -m phase4 -p no:cacheprovider
+	@$(PY) -m pytest tests/test_train_sft.py -m phase5 -p no:cacheprovider
+	@$(PY) -m pytest tests/test_train_rl.py -m phase6 -p no:cacheprovider
 test-imports:     ## structural tests — always green, catch the design bugs
 	@$(PY) -m pytest tests/test_imports.py -v -p no:cacheprovider
 
@@ -38,6 +43,15 @@ test-reward:      ## phase 2 — the one that matters
 
 test-gen:         ## phase 3
 	@$(PY) -m pytest tests/test_gen_splits.py -m phase3
+
+test-eval:        ## phase 4 — the CPU-side evaluator. No GPU, no model, no kit needed.
+	@$(PY) -m pytest tests/test_eval.py -m phase4 -v
+
+test-heal:        ## phase 7 — the self-healing loop. No GPU, no model needed.
+	@$(PY) -m pytest tests/test_heal.py -m phase7 -v -p no:cacheprovider
+
+test-rl:          ## phase 6 — the RL trainer's arithmetic and guards. No GPU needed.
+	@$(PY) -m pytest tests/test_train_rl.py -m phase6 -v -p no:cacheprovider
 
 audit:            ## the pre-GPU evidence: score every attack under both rewards
 	@$(PY) scripts/run_audit.py --out audit/reward_hackability.json

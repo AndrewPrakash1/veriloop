@@ -24,15 +24,21 @@ a do-nothing agent credit on every episode where no action was needed, so the ne
 fraction is tracked per split and asserted in `tests/test_gen_splits.py`.
 """
 
-from veriloop.gen.templates import analytics, kyc, negatives
+from veriloop.gen.templates import analytics, drills, kyc, negatives
 
 #: name -> template callable. Names are global: two modules may not define the same name, or
 #: a split would silently generate the wrong family.
-TEMPLATES: dict = {**kyc.TEMPLATES, **negatives.TEMPLATES, **analytics.TEMPLATES}
+TEMPLATES: dict = {
+    **kyc.TEMPLATES,
+    **negatives.TEMPLATES,
+    **analytics.TEMPLATES,
+    **drills.TEMPLATES,
+}
 
-_MODULES = {"kyc": kyc, "negatives": negatives, "analytics": analytics}
+_MODULES = {"kyc": kyc, "negatives": negatives, "analytics": analytics, "drills": drills}
 
-_dupes = (len(kyc.TEMPLATES) + len(negatives.TEMPLATES) + len(analytics.TEMPLATES)) - len(TEMPLATES)
+_dupes = (len(kyc.TEMPLATES) + len(negatives.TEMPLATES) + len(analytics.TEMPLATES)
+          + len(drills.TEMPLATES)) - len(TEMPLATES)
 if _dupes:
     raise RuntimeError(
         f"{_dupes} duplicate template name(s) across template modules — a split would "

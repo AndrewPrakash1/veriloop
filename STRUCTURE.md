@@ -95,7 +95,7 @@ Each step is runnable before the next one exists.
 | 6 | `eval/harness.py`, `metrics.py`, `stats.py` | `make baseline` | write the base row for E1–E4 |
 | 7 | `train/sft.py` | `make sft` | a checkpoint that emits parseable calls >95% |
 | 8 | `train/rl.py` + `configs/grpo_*.yaml` | `make rl ARM=state` | one arm with an eval row |
-| 9 | `heal/*` | `make heal` | one round, gate verdict logged |
+| 9 | `heal/{detect,classify,synthesise,gate,loop}.py` + `gen/templates/drills.py` | `make test-heal` + `make heal` | ✅ DONE (CPU side) — 19 tests; `scripts/heal_rehearsal.py` runs a full round with scripted policies and the gate REJECTS a trap-blind round |
 
 **Steps 0–4 need no GPU at all.** That is deliberate: the reward audit is the cheapest
 artifact that can carry the project, so it is built before any GPU hour is spent.

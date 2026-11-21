@@ -230,6 +230,17 @@ def _summarise(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     }
 
 
+def resolve_contract(episode: Any, contracts: Mapping[str, Contract]) -> Contract | None:
+    """Public wrapper over `_contract_for`.
+
+    `heal` needs to score recorded episodes and must not reach into a private helper: two
+    callers of the same private name is how a rename becomes two behaviours. Returns None when
+    the contract cannot be resolved — the caller decides, and nothing here raises, because an
+    unresolvable episode is a scored `unscored`, never a crash.
+    """
+    return _contract_for(episode, contracts)
+
+
 def contract_metrics(
     episodes: list[Any], contracts: dict, *, negative_ids: Any = None
 ) -> dict:

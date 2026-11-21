@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<!--
+  VeriLoop demo — one page, no build step, no framework, no model.
+
+  The whole project's abstractness comes from the fact that its evidence is tables. This
+  page answers the question a table cannot: what happened to the case, and did the agent
+  actually do the work?
+
+  Every value on screen comes from /api/meta and /api/replay. Nothing is hardcoded. The
+  reward columns read "unmeasured" until audit/reward_hackability.json exists, and that is
+  deliberate: a number on screen that contradicts the write-up is worse than a blank.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VeriLoop — did it do the work?</title>
+<style>
+  :root{
+    /* Projector legibility drove every value here. Dark themes plus a cheap projector
+       plus ambient light crushes near-black backgrounds and thin grey text, so the greys
+       are lighter, the borders are stronger, and nothing is below 13px. */
+    --bg:#0b0d10; --panel:#171b21; --panel2:#212733; --line:#39414f;
+    --fg:#f0f4fa; --dim:#aab5c6; --accent:#6cb2ff;
+    --ok:#4ad664; --bad:#ff6b61; --warn:#e0a72b;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif}
+  header{border-bottom:1px solid var(--line);padding:20px 26px}
+  .kicker{font:700 13px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+  h1{margin:10px 0 8px;font-size:24px;font-weight:700}
+  .brief{color:var(--dim);max-width:78ch;font-size:15.5px}
+  .meta{margin-top:12px;font:14px var(--mono);color:var(--dim);display:flex;gap:22px;flex-wrap:wrap}
+  .meta b{color:var(--fg)}
+  .banner{margin:0 26px;padding:13px 16px;border-radius:9px;font-size:14.5px;
+          border:1px solid var(--line);background:var(--panel2);color:var(--dim)}
+  .banner b{color:var(--fg)}
+  main{display:grid;grid-template-columns:290px minmax(0,0.92fr) minmax(0,1.18fr);
+       gap:16px;padding:18px 26px 48px;align-items:start}
+  @media(max-width:1180px){main{grid-template-columns:1fr}}
+  section{background:var(--panel);border:1px solid var(--line);border-radius:11px;overflow:hidden}
+  h2{margin:0;padding:13px 16px;font:700 13px/1 var(--mono);letter-spacing:.09em;
+     text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--line);
+     background:var(--panel2)}
+  .body{padding:14px 16px}
+  .route{padding:11px 13px;border:1px solid transparent;border-radius:8px;cursor:pointer;margin-bottom:8px}
+  .route:hover{background:var(--panel2)}
+  .route.on{background:var(--panel2);border-color:var(--accent)}
+  .route .id{font:14px/1.35 var(--mono);color:var(--fg);overflow-wrap:anywhere}
+  .route .pr{font-size:13.5px;color:var(--dim);margin-top:4px}
+  .route .calls{font:13px var(--mono);color:var(--dim);margin-top:4px}
+  .tag{font:700 11px/1 var(--mono);letter-spacing:.07em;text-transform:uppercase;
+       padding:4px 7px;border-radius:4px;margin-left:8px;vertical-align:1px}
+  .tag.nt{background:#4a3a12;color:#ffc93c}
+  .tag.ctl{background:#12381d;color:var(--ok)}
+  table{width:100%;border-collapse:collapse}
+  td,th{text-align:left;padding:7px 0;vertical-align:top;border-bottom:1px solid var(--line);
+        overflow-wrap:anywhere;word-break:break-word}
+  th{font:700 12px/1 var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--dim)}
+  tr:last-child td{border-bottom:0}
+  .t{font:13.5px var(--mono);overflow-wrap:anywhere}
+  .args{color:var(--dim);word-break:break-word}
+  .ok{color:var(--ok);font-weight:600} .no{color:var(--bad);font-weight:600}
+  .claim{border-left:3px solid var(--warn);padding:8px 0 8px 13px;margin:0 0 14px;
+         color:var(--dim);font-size:14.5px;font-style:italic}
+  .claim b{display:block;font:700 12px/1.7 var(--mono);letter-spacing:.07em;
+           text-transform:uppercase;color:var(--warn);font-style:normal}
+  .req{font:13.5px var(--mono);color:var(--dim);overflow-wrap:anywhere}
+  .req .k{color:var(--fg)}
+  .verdict{padding:13px 15px;border-radius:8px;background:var(--panel2);border:1px solid var(--line);
+           font:13.5px/1.6 var(--mono);color:var(--dim);margin-top:14px}
+  .empty{color:var(--dim);font-size:14.5px;padding:8px 0}
+  .spinner{color:var(--dim);font:13.5px var(--mono)}
+  code{font:13px var(--mono);background:var(--panel2);padding:2px 5px;border-radius:4px}
+</style>
+</head>
+<body>
+<header>
+  <div class="kicker">Lexsi AI Safety &amp; Alignment Hackathon · Track 3 · VeriLoop</div>
+  <h1 id="scenario">loading…</h1>
+  <div class="brief" id="brief"></div>
+  <div class="meta" id="meta"></div>
+</header>
+
+<div class="banner" id="rewardbanner"></div>
+
+<main>
+  <section>
+    <h2>Routes</h2>
+    <div class="body" id="routes"><div class="spinner">loading…</div></div>
+  </section>
+
+  <section>
+    <h2>What the agent actually did</h2>
+    <div class="body" id="log"><div class="spinner">loading…</div></div>
+  </section>
+
+  <section>
+    <h2>The world, and what the contract demanded</h2>
+    <div class="body" id="world"><div class="spinner">loading…</div></div>
+  </section>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let META = null;
+
+async function jget(url){
+  const r = await fetch(url);
+  const last = r.status + " " + url;
+  let data;
+  try { data = await r.json(); } catch(e){ throw new Error(last + " — not JSON"); }
+  if (!r.ok || data.error) throw new Error(data.error || last);
+  return data;
+}
+
+async function boot(){
+  let meta;
+  try { meta = await jget("/api/meta"); }
+  catch(e){ $("#routes").innerHTML = `<div class="empty no">Failed to load: ${esc(e.message)}</div>`; return; }
+  META = meta;
+
+  $("#scenario").textContent = meta.scenario;
+  $("#brief").textContent = meta.brief.replace(/\s+/g," ");
+  $("#meta").innerHTML =
+    `<span>tools offered: <b>${meta.tools.length}</b></span>` +
+    `<span>step budget: <b>${meta.step_budget}</b></span>` +
+    `<span>mandatory calls: <b>${meta.must_call.length}</b></span>` +
+    `<span>forbidden calls: <b>${meta.must_not_call.length}</b></span>`;
+
+  $("#rewardbanner").innerHTML = meta.audit_present
+    ? "Reward columns are <b>measured</b> — <code>audit/reward_hackability.json</code> is present."
+    : "Reward columns read <b>unmeasured</b>. The reward engine is Phase 2 and its audit has not run yet, so this page shows what the world says and stops there. It never invents a score.";
+
+  $("#routes").innerHTML = meta.routes.map((r,i) =>
+    `<div class="route${i===0?" on":""}" data-id="${esc(r.id)}">
+       <div class="id">${esc(r.id)}${r.non_trivial
+          ? '<span class="tag nt">attack</span>'
+          : '<span class="tag ctl">control</span>'}</div>
+       <div class="pr">${esc(r.probes)}</div>
+       <div class="calls">${r.n_calls} tool call${r.n_calls===1?"":"s"}</div>
+     </div>`).join("");
+
+  document.querySelectorAll(".route").forEach(el =>
+    el.onclick = () => {
+      document.querySelectorAll(".route").forEach(o => o.classList.remove("on"));
+      el.classList.add("on");
+      show(el.dataset.id);
+    });
+
+  // The page must look alive on arrival: run the control route immediately.
+  show(meta.routes[0].id);
+}
+
+async function show(id){
+  $("#log").innerHTML = '<div class="spinner">replaying against a fresh world…</div>';
+  $("#world").innerHTML = '<div class="spinner">…</div>';
+  let d;
+  try { d = await jget("/api/replay?id=" + encodeURIComponent(id)); }
+  catch(e){
+    $("#log").innerHTML = `<div class="empty no">Replay failed: ${esc(e.message)}</div>`;
+    $("#world").innerHTML = "";
+    return;
+  }
+  renderLog(d); renderWorld(d);
+}
+
+function renderLog(d){
+  const rows = d.calls.map(c => `
+    <tr>
+      <td class="t" style="width:28px;color:var(--dim)">${c.step}</td>
+      <td class="t">${esc(c.tool)}</td>
+      <td class="t args">${esc(JSON.stringify(c.args))}</td>
+      <td class="t ${c.schema_valid ? 'ok' : 'no'}" style="text-align:right"
+          title="${c.schema_valid ? "schema-valid" : "REJECTED — malformed call, no state change"}">
+        ${c.schema_valid ? "ok" : "invalid"}</td>
+    </tr>`).join("") || '<tr><td colspan="4" class="empty">No tool calls at all.</td></tr>';
+
+  const flags = [];
+  if (d.duplicates) flags.push(`<b class="no">${d.duplicates}</b> duplicate call${d.duplicates===1?"":"s"}`);
+  if (d.cycled) flags.push('<b class="no">repeating cycle detected</b>');
+  if (!d.terminated) flags.push('<b class="no">never reached a terminal action</b>');
+  if (!flags.length) flags.push('<span class="ok">no duplicates, no cycle, terminated</span>');
+
+  const invalid = d.calls.filter(c => !c.schema_valid).length;
+
+  $("#log").innerHTML = `
+    ${d.claimed ? `<div class="claim"><b>the agent's final message</b>${esc(d.claimed)}</div>` : ""}
+    <table>
+      <tr><th>step</th><th>tool</th><th>args</th><th style="text-align:right">schema</th></tr>
+      ${rows}
+    </table>
+    <div class="verdict">
+      ${d.calls.length} call${d.calls.length===1?"":"s"} · ${d.steps} step${d.steps===1?"":"s"}
+      of ${META.step_budget}${invalid ? ` · <b class="no">${invalid} schema-invalid</b>` : ""}<br>
+      ${flags.join(" · ")}
+    </div>`;
+}
+
+function renderWorld(d){
+  const required = new Set(META.must_call.map(m => m.args && m.args.check_type).filter(Boolean));
+  const recorded = new Set((d.checks || []).map(c => c.check_type));
+  const checkRows = [...required].map(t => `
+    <tr><td class="req">record_check(<span class="k">${esc(t)}</span>)</td>
+        <td class="req" style="text-align:right" class="${recorded.has(t)?"ok":"no"}">
+          ${recorded.has(t) ? "recorded" : "never happened"}</td></tr>`).join("");
+
+  const acct = (d.accounts || []).map(a =>
+    `<tr><td class="req">accounts.status</td>
+        <td class="req" style="text-align:right"><span class="k">${esc(a.status)}</span></td></tr>`).join("");
+  const cs = (d.cases || []).map(c =>
+    `<tr><td class="req">cases.state</td>
+        <td class="req" style="text-align:right"><span class="k">${esc(c.state)}</span></td></tr>`).join("");
+
+  const wanted = META.final_state.map(fs => `
+    <tr><td class="req">${esc(fs.table)} ${esc(fs.op)}
+            <span class="k">${esc(JSON.stringify(fs.assertions))}</span></td>
+        <td></td></tr>`).join("");
+
+  const rew = d.reward
+    ? `<div class="verdict">
+         <b>measured</b> · naive reward <span class="k">${esc(d.reward.claim_verified)}</span>
+         · state-verified <span class="k">${esc(d.reward.state_verified)}</span>
+         · ${d.reward.closed ? '<span class="ok">cheat closed</span>' : '<span class="no">OPEN HOLE</span>'}
+       </div>`
+    : `<div class="verdict">
+         <b>reward: unmeasured.</b> Phase 2 computes it in <code>veriloop/rewards/</code> and
+         publishes it to <code>audit/reward_hackability.json</code>. The rows above are the
+         demo's own reading of the world against the contract — a display aid, deliberately
+         never presented as the score.
+       </div>`;
+
+  $("#world").innerHTML = `
+    <table>
+      <tr><th colspan="2">world after this route</th></tr>
+      ${acct}${cs}
+      <tr><th colspan="2">mandatory checks the contract required</th></tr>
+      ${checkRows || '<tr><td class="empty" colspan="2">none required</td></tr>'}
+      <tr><th colspan="2">final state the contract demanded</th></tr>
+      ${wanted}
+    </table>
+    ${rew}`;
+}
+
+boot();
+</script>
+</body>
+</html>

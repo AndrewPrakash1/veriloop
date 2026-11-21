@@ -83,6 +83,7 @@ Track 3 (Agentic Fine-tuning), in priority order:
 
 | File | What it is |
 |---|---|
+| `WORK_DIVISION.md` | **four members: who owns which files, wave by wave, with gates** |
 | `STRUCTURE.md` | the repo map: what every directory owns, dependency direction, fill order |
 | `README.md` | this overview |
 | `PLAN.md` | the detailed build plan: phases, ownership, metrics, ablations, risks, calendar |

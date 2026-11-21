@@ -16,6 +16,7 @@ single responsibility, the signatures, and `raise NotImplementedError`.
 ```
 veriloop/
 ├── STRUCTURE.md              ← you are here
+├── WORK_DIVISION.md          four roles, file-level, wave by wave
 ├── README.md                 overview: the problem, the mechanism, the status
 ├── PLAN.md                   phases, arms, metrics, risks, calendar
 ├── ARCHITECTURE.md           components, contracts, reward maths, threat model
@@ -48,6 +49,10 @@ veriloop/
 ```
 
 ## 2. Who owns what
+
+**Per-person ownership lives in `WORK_DIVISION.md`** (four roles, file-level, phased). This
+section is the technical version: what each directory may do, and — more usefully — what it
+must never do.
 
 | Dir | Owns | Must NOT do |
 |---|---|---|

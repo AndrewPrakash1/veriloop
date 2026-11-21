@@ -1,35 +1,49 @@
-# VeriLoop ownership. GitHub routes review requests from this file, so "whose directory is
-# this" stops being a conversation.
+# VeriLoop ownership. Mirrors WORK_DIVISION.md, which is the canonical copy — if the two
+# disagree, WORK_DIVISION.md wins and this file gets fixed in the same PR.
 #
-# FILL IN YOUR HANDLES, then uncomment. A CODEOWNERS rule naming a user who does not exist
-# makes GitHub complain on every PR, so these stay commented until the handles are real.
+# FILL IN YOUR HANDLES AND UNCOMMENT. A rule naming a GitHub user who does not exist makes
+# GitHub complain on every PR, so these stay commented until the four handles are real.
 #
-# Person 1 — the world
-# /veriloop/env/         @<person1>
-# /veriloop/contracts/   @<person1>
+# M1 — Reward & Audit
+# /veriloop/rewards/        @<m1>
+# /audit/                   @<m1>
+# /configs/audit.yaml       @<m1>
+# /scripts/run_audit.py     @<m1>
+# /tests/test_reward_terms.py        @<m1>
+# /tests/test_reward_hackability.py  @<m1>
 #
-# Person 2 — the reward and the audit
-# /veriloop/rewards/     @<person2>
-# /audit/                @<person2>
-# /scripts/run_audit.py  @<person2>
+# M2 — Contracts & Data
+# /veriloop/contracts/      @<m2>
+# /veriloop/gen/            @<m2>
+# /contracts/               @<m2>
+# /data/                    @<m2>
+# /scripts/make_splits.py   @<m2>
+# /tests/test_contracts.py  @<m2>
+# /tests/test_gen_splits.py @<m2>
 #
-# Person 3 — the data
-# /veriloop/gen/         @<person3>
-# /data/                 @<person3>
+# M3 — Model & Evaluation  (GPU owner)
+# /agents/                  @<m3>
+# /train/                   @<m3>
+# /veriloop/eval/           @<m3>
+# /configs/                 @<m3>
+# /scripts/smoke.py         @<m3>
+# /scripts/serve.sh         @<m3>
+# /scripts/run_baseline.py  @<m3>
 #
-# Person 4 — GPU, agent glue, evaluation
-# /train/                @<person4>
-# /agents/               @<person4>
-# /veriloop/eval/        @<person4>
-# /configs/              @<person4>
+# M4 — Demo, Healing & Delivery
+# /demo/                    @<m4>
+# /veriloop/heal/           @<m4>
+# /artifacts/               @<m4>
+# /submission/              @<m4>
 #
-# Person 5 — write-up and artifacts
-# /submission/           @<person5>
-# /artifacts/            @<person5>
+# FROZEN — verified in Phase 1; every number downstream depends on it. Bug fixes only,
+# and they need the lead's sign-off.
+# /veriloop/env/            @<lead>
 #
-# SHARED — changes here need the lead's sign-off, because everybody's work depends on them
-# /contracts/*.yaml      @<lead>
-# /Makefile              @<lead>
-# /STRUCTURE.md          @<lead>
-# /pyproject.toml        @<lead>
-# /.github/              @<lead>
+# SHARED — a change here affects everyone, so it needs the lead in the PR.
+# /Makefile                 @<lead>
+# /pyproject.toml           @<lead>
+# /ARCHITECTURE.md          @<lead>
+# /STRUCTURE.md             @<lead>
+# /WORK_DIVISION.md         @<lead>
+# /.github/                 @<lead>

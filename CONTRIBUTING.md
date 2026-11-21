@@ -5,8 +5,8 @@ instead of becoming a negotiation.
 
 ## The one rule that keeps five branches conflict-free
 
-**A branch touches only the directories it owns.** Ownership is in `CODEOWNERS` and in
-`STRUCTURE.md` §2. If your change genuinely needs a file outside your directory —
+**A branch touches only the directories it owns.** Ownership is in `WORK_DIVISION.md` (canonical),
+`CODEOWNERS` (mirrors it) and `STRUCTURE.md` §2. If your change genuinely needs a file outside your directory —
 `Makefile`, `contracts/*.yaml`, `STRUCTURE.md`, `pyproject.toml` — say so in the PR body
 and expect the lead to either make the edit himself or tell you to. Do not quietly edit
 someone else's module; that is how two people end up rewriting the same function in two

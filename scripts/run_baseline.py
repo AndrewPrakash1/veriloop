@@ -132,6 +132,14 @@ def run_split(split_path: str, out_dir: str, *, model_label: str, limit: int | N
                     "completions": list(getattr(policy, "completions", [])),
                 }
                 traj.write(json.dumps(record, default=str) + "\n")
+                traj.flush()
+                # A per-episode line, flushed, because the summary only prints after the LAST
+                # episode: without this a 20-episode run is 20 silent minutes and every
+                # reasonable person concludes it has hung. The flush also makes
+                # `trajectories.jsonl` watchable from another terminal while it runs.
+                print(f"  [{len(rows) + 1:3d}/{len(scenarios):3d}] {record['scenario_id']:<32s} "
+                      f"reward {float(reward):+.3f}  steps {int(result.steps):2d}  "
+                      f"term {str(bool(result.terminated)):5s}  {elapsed:6.1f}s", flush=True)
             finally:
                 world.close()
 

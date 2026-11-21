@@ -13,6 +13,14 @@ import time
 from collections import Counter
 from typing import Any
 
+# `python3 scripts/run_baseline.py` puts SCRIPTS/ on sys.path[0], not the repo root, so this
+# import needs the repo root put back. Same shim as `scripts/verify_world.py`, derived from
+# this file's location so it does not depend on the cwd.
+if __package__ in (None, ""):
+    import sys
+
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 #: Failure names come from the healing loop's enum, not from this script. The histogram is
 #: Phase 7's INPUT, and a second set of names would not join up with it. `classify()` replaces
 #: the rule set below once it lands; the names are already shared.

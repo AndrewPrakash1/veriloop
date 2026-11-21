@@ -43,6 +43,15 @@ import subprocess
 import time
 from typing import Any, Sequence
 
+# Running this file directly — `python3 train/sft.py`, which is exactly what `make sft` does —
+# puts TRAIN/ on sys.path[0] and NOT the repo root, so `import veriloop` fails no matter what
+# the working directory is. Same shim as `scripts/verify_world.py`, except derived from THIS
+# file's location rather than from the cwd, so it also works if you run it from elsewhere.
+if __package__ in (None, ""):
+    import sys
+
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from veriloop.env.episode import RoutePolicy, run_episode
 
 #: `configs/base.yaml`. A default only, so this script runs standalone; whichever value

@@ -20,6 +20,7 @@ markers = [
     "phase1: env + contracts",
     "phase2: reward engine + hackability",
     "phase3: generator + splits",
+    "phase4: evaluator — oracle, metrics, statistics (CPU only)",
     "phase5: sft",
     "phase6: rl arms",
     "phase7: healing",

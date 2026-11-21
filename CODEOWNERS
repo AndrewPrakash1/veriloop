@@ -1,0 +1,35 @@
+# VeriLoop ownership. GitHub routes review requests from this file, so "whose directory is
+# this" stops being a conversation.
+#
+# FILL IN YOUR HANDLES, then uncomment. A CODEOWNERS rule naming a user who does not exist
+# makes GitHub complain on every PR, so these stay commented until the handles are real.
+#
+# Person 1 — the world
+# /veriloop/env/         @<person1>
+# /veriloop/contracts/   @<person1>
+#
+# Person 2 — the reward and the audit
+# /veriloop/rewards/     @<person2>
+# /audit/                @<person2>
+# /scripts/run_audit.py  @<person2>
+#
+# Person 3 — the data
+# /veriloop/gen/         @<person3>
+# /data/                 @<person3>
+#
+# Person 4 — GPU, agent glue, evaluation
+# /train/                @<person4>
+# /agents/               @<person4>
+# /veriloop/eval/        @<person4>
+# /configs/              @<person4>
+#
+# Person 5 — write-up and artifacts
+# /submission/           @<person5>
+# /artifacts/            @<person5>
+#
+# SHARED — changes here need the lead's sign-off, because everybody's work depends on them
+# /contracts/*.yaml      @<lead>
+# /Makefile              @<lead>
+# /STRUCTURE.md          @<lead>
+# /pyproject.toml        @<lead>
+# /.github/              @<lead>

@@ -1,0 +1,16 @@
+# Arm A3_state — state-verified, mandatory term only. Is the contract check enough on its own?
+extends: base.yaml
+stage: rl
+algorithm: grpo            # RLOO is the fallback if GRPO is unstable at 3B
+init_adapter: outputs/A1_sft
+data:
+  file: data/splits/train_rl.jsonl     # filtered to scenarios the SFT model solves 10-90% of the time
+reward_funcs: veriloop.rewards.state_verified(mode=mandatory_only)
+rollout_group_size: 8
+steps: 300
+batch_size: 2
+lr: 1.0e-6
+kl_coef: 0.0
+clip_eps: 0.2
+seed: 42
+out: outputs/A3_state

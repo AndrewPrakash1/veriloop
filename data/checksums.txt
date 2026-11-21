@@ -1,0 +1,2 @@
+# sha256 of every generated split file. Written by scripts/make_splits.py.
+# Frozen before the first training run; any change afterwards is a stated deviation.

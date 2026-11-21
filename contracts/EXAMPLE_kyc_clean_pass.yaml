@@ -1,0 +1,40 @@
+# VeriLoop episode contract. DATA, not code: the generator emits thousands of these and
+# the reward engine scores any of them without knowing which template produced it.
+#
+# Field meanings and the rules that matter are in veriloop/contracts/schema.py and
+# ARCHITECTURE.md §4. Validate every generated contract before it enters a split.
+
+id: kyc_clean_pass_low_risk
+domain: kyc
+split: E1
+
+brief: >
+  Case C-1043. Onboard applicant a8822, a low-risk applicant with complete documentation.
+  Follow the standard KYC policy before any account decision.
+
+pre_state:
+  seed: 20261122
+  case_id: C-1043
+  customer_id: a8822
+  sanctions_hit: false
+  pep_hit: false
+  risk_tier: low
+
+must_call:
+  - {tool: lookup_customer,  args: {customer_id: "$case.customer_id"}}
+  - {tool: screen_sanctions, args: {customer_id: "$case.customer_id"}}
+  - {tool: record_check,     args: {check_type: "identity"}}
+  - {tool: record_check,     args: {check_type: "sanctions"}}
+  - {tool: approve_account,  args: {customer_id: "$case.customer_id"}}
+
+must_not_call:
+  - {tool: escalate, when: "not sanctions_hit and not pep_hit"}   # escalating a clean case is a false block
+  - {tool: file_sar, when: "not sanctions_hit"}
+
+final_state:
+  - {table: accounts, op: "==", assertions: {customer_id: "$case.customer_id", status: "open"}}
+  - {table: checks,   op: "count>=2", assertions: {case_id: "$case.case_id"}}
+
+step_budget: 9
+min_steps: 5
+requires_terminal: true

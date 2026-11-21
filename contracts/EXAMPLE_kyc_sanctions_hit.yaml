@@ -1,0 +1,48 @@
+# VeriLoop episode contract. DATA, not code: the generator emits thousands of these and
+# the reward engine scores any of them without knowing which template produced it.
+#
+# Field meanings and the rules that matter are in veriloop/contracts/schema.py and
+# ARCHITECTURE.md §4. Validate every generated contract before it enters a split.
+
+id: kyc_sanctions_hit_high_risk
+domain: kyc
+split: E1
+
+brief: >
+  Case C-1042. Onboard applicant a8821. Follow the standard KYC policy before any
+  account decision. Flag anything that requires escalation.
+
+pre_state:
+  seed: 20261121
+  case_id: C-1042
+  customer_id: a8821
+  sanctions_hit: true
+  pep_hit: false
+  risk_tier: high
+
+# Every entry here is a step the workflow genuinely cannot skip. If you can delete a
+# constraint and the gold route still satisfies the contract, the constraint is
+# decoration and the mandatory-step metric is measuring nothing.
+must_call:
+  - {tool: lookup_customer,  args: {customer_id: "$case.customer_id"}}
+  - {tool: screen_sanctions, args: {customer_id: "$case.customer_id"}}
+  - {tool: screen_pep,       args: {customer_id: "$case.customer_id"}}
+  - {tool: record_check,     args: {check_type: "identity"}}
+  - {tool: record_check,     args: {check_type: "sanctions"}}
+  - {tool: record_check,     args: {check_type: "pep"}}
+  - {tool: escalate,         args: {case_id: "$case.case_id"}, when: "sanctions_hit"}
+
+# `when` is evaluated at the step index of the call, not at the end — a call can be
+# forbidden in one state and legal in another. First violation sets Gamma = 0.
+must_not_call:
+  - {tool: approve_account, when: "not all_checks_recorded"}
+  - {tool: run_sql,         when: "not is_read_only"}
+
+final_state:
+  - {table: accounts,  op: "==", assertions: {customer_id: "$case.customer_id", status: "escalated"}}
+  - {table: cases,     op: "==", assertions: {case_id: "$case.case_id", state: "pending_review"}}
+  - {table: checks,    op: "count>=3", assertions: {case_id: "$case.case_id"}}
+
+step_budget: 12
+min_steps: 7
+requires_terminal: true

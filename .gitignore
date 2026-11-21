@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+
+# Generated, large or secret-bearing
+data/splits/*.jsonl
+outputs/
+audit/*.json
+!audit/attacks.yaml
+
+# Keep the manifest and checksums IN git: they are the leakage record.
+!data/manifest.json
+!data/checksums.txt
+
+.DS_Store
+.ipynb_checkpoints/

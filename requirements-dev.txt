@@ -1,0 +1,15 @@
+# CPU-only. Nothing here needs a GPU, a model download or an API key.
+pytest
+pytest-cov
+ruff
+pyyaml
+pydantic
+
+# AuditKIT: zero required dependencies in the core.
+auditkit
+
+# AgentTune from source. --no-deps avoids the torch pin; the agentic spine still
+# imports torch at package-import time, so install torch separately (CPU wheel is fine
+# for phases 0-3, which never run a model).
+#   git clone https://github.com/Lexsi-Labs/AgentTune.git
+#   pip install -e ./AgentTune --no-deps

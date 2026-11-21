@@ -1,0 +1,31 @@
+[project]
+name = "veriloop"
+version = "0.1.0"
+description = "State-verified rewards and self-healing post-training for compliance agents"
+requires-python = ">=3.12"
+
+# Core needs nothing beyond the stdlib. AuditKIT is zero-dep; AgentTune is installed
+# from source (see requirements-dev.txt) because a full install pins torch.
+dependencies = []
+
+[project.optional-dependencies]
+eval = ["auditkit"]
+dev = ["pytest", "pytest-cov", "ruff", "pyyaml", "pydantic"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+    "phase0: stack smoke",
+    "phase1: env + contracts",
+    "phase2: reward engine + hackability",
+    "phase3: generator + splits",
+    "phase5: sft",
+    "phase6: rl arms",
+    "phase7: healing",
+    "gpu: needs a GPU",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

@@ -1,0 +1,31 @@
+# Shared defaults. Every arm config `extends` this, so an ablation cannot accidentally
+# differ in anything but the reward function.
+model: CohereLabs/tiny-aya-global      # confirm against the rules FAQ before GPU spend
+dtype: bf16
+load_in_4bit: true
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj]
+
+prompt_file: agents/prompts.py
+
+rollout:
+  engine: transformers        # "vllm" if available; same env must run either
+  max_steps: 12
+  max_completion_tokens: 512
+  temperature: 0.8
+
+eval:
+  splits: [E1, E2, E3, E4]
+  bootstrap_resamples: 10000
+  bootstrap_seed: 42
+
+# Recorded into every run config. Without these the run is not reproducible and the
+# ablation is not defensible.
+fingerprints:
+  - git_sha
+  - config_sha256
+  - prompt_sha256
+  - versions

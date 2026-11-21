@@ -1,0 +1,18 @@
+{
+  "_status": "unmeasured — no splits have been generated yet",
+  "_note": "Written by scripts/make_splits.py. Committed on purpose: this is the leakage record.",
+  "generated_at": null,
+  "git_sha": null,
+  "seed": null,
+  "splits": {
+    "train": null,
+    "train_rl": null,
+    "E1": null,
+    "E2": null,
+    "E3": null,
+    "E4": null
+  },
+  "templates_by_split": {},
+  "dedupe": {"rule": null, "ngram_overlap_threshold": null},
+  "files": {}
+}

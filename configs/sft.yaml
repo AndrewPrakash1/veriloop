@@ -1,0 +1,16 @@
+# Arm A1 — SFT cold start. FORMAT ONLY: teach the tool-call syntax and episode shape.
+extends: base.yaml
+stage: sft
+data:
+  file: data/splits/train.jsonl
+  segment_weights:      # reasoning 1.0 · tool call 2.0 · task and tool results 0.0
+    reasoning: 1.0
+    tool_call: 2.0
+    tool_result: 0.0
+    task: 0.0
+  max_samples: 1500
+epochs: 1
+batch_size: 4
+lr: 2.0e-4
+mask_assistant_only: true
+out: outputs/A1_sft

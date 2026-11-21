@@ -1,0 +1,39 @@
+name: ci
+
+# A permanently-red CI trains a team to ignore CI, so this gate runs a GROWING allowlist.
+# The full suite is red by design while phases 2, 3, 5, 6 and 7 are unimplemented.
+#
+# WHEN YOUR PHASE LANDS: add its marked tests to the `make ci` target in one commit, in the
+# same PR. That is part of the phase's definition of done, not an optional extra.
+#
+# Python 3.12 here even though a teammate's laptop may be on something else: CI is the
+# version of record, and AgentTune requires >= 3.12.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-ci.txt
+
+      - name: Install
+        run: python -m pip install -r requirements-ci.txt
+
+      - name: Structural tests (import direction, reward signature)
+        run: PY=python make test-imports
+
+      - name: Phase 1 gate — the gold route satisfies its own contract
+        run: PY=python make verify-world
+
+      - name: Phase 1 tests
+        run: PY=python make test-env

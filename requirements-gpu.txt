@@ -1,0 +1,8 @@
+# Only on the training box (24GB NVIDIA). Phases 0-4 do not need any of this.
+torch
+transformers
+datasets
+peft
+accelerate
+trl
+bitsandbytes

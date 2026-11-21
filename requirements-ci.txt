@@ -1,0 +1,6 @@
+# CI only. Deliberately minimal and fast: phases 0-4 need no torch, so the gate runs in
+# seconds and nobody is tempted to skip it. AgentTune is NOT installed here — importing it
+# pulls torch. Its own integration is checked by the GPU owner, not by CI.
+pytest
+pyyaml
+pydantic

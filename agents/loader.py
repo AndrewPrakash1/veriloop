@@ -27,6 +27,47 @@ MAX_NEW_TOKENS = 128
 
 DEFAULT_TEMPERATURE = 0.8
 
+#: The dtype spellings this project writes in configs (`configs/base.yaml` says `bf16`) versus
+#: the spellings torch actually exposes. **`torch.bf16` DOES NOT EXIST** — it is
+#: `torch.bfloat16` — so a naive `getattr(torch, dtype)` rejects the value the config ships
+#: with, and rejects it with a message that lists the very name it just refused.
+_DTYPE_ALIASES = {
+    "bf16": "bfloat16",
+    "bfloat16": "bfloat16",
+    "fp16": "float16",
+    "float16": "float16",
+    "half": "float16",
+    "fp32": "float32",
+    "float32": "float32",
+    "float": "float32",
+}
+
+
+def resolve_dtype(torch: Any, dtype: str) -> Any:
+    """Map a config dtype name onto a real torch attribute, or raise with the valid set."""
+    attr = _DTYPE_ALIASES.get(str(dtype).lower().strip())
+    if attr is None:
+        raise ValueError(
+            f"unknown dtype {dtype!r}; expected one of {sorted(set(_DTYPE_ALIASES))}"
+        )
+    resolved = getattr(torch, attr, None)
+    if resolved is None:
+        raise ValueError(f"this torch build has no torch.{attr} to resolve {dtype!r} to")
+    return resolved
+
+
+def _from_pretrained(cls: Any, model_id: str, torch_dtype: Any, **kwargs: Any) -> Any:
+    """`dtype=` or `torch_dtype=`, whichever this transformers build accepts.
+
+    transformers renamed the keyword (`torch_dtype` -> `dtype`), and an unexpected keyword is a
+    TypeError at call time. Trying the new spelling first and falling back keeps one script
+    working across the rename without pinning a version.
+    """
+    try:
+        return cls.from_pretrained(model_id, dtype=torch_dtype, **kwargs)
+    except TypeError:
+        return cls.from_pretrained(model_id, torch_dtype=torch_dtype, **kwargs)
+
 
 def load_tokenizer(model_id: str = DEFAULT_MODEL_ID) -> Any:
     """Tokenizer only — cheap, no GPU, usable for a prompt dry-run."""
@@ -55,11 +96,9 @@ def load_model(
     import torch
     from transformers import AutoModelForCausalLM
 
-    torch_dtype = getattr(torch, dtype, None)
-    if torch_dtype is None:
-        raise ValueError(f"unknown dtype {dtype!r}; expected bf16, fp16 or float32")
+    torch_dtype = resolve_dtype(torch, dtype)
 
-    kwargs: dict[str, Any] = {"torch_dtype": torch_dtype}
+    kwargs: dict[str, Any] = {}
     if load_in_4bit:
         if not torch.cuda.is_available():
             raise RuntimeError(
@@ -76,7 +115,7 @@ def load_model(
         )
         kwargs["device_map"] = "auto"
 
-    model = AutoModelForCausalLM.from_pretrained(model_id, **kwargs)
+    model = _from_pretrained(AutoModelForCausalLM, model_id, torch_dtype, **kwargs)
     if adapter:
         from peft import PeftModel
 

@@ -269,3 +269,53 @@ def test_the_random_control_is_seeded_and_content_independent(scenarios) -> None
     other = [random_reward(other_episode, scenario.contract) for _ in range(5)]
     assert other == first, "the control's draw must not depend on the episode"
     reset_random(42)
+
+
+# -------------------------------------------------------------------- the model loader ----
+@pytest.mark.phase5
+def test_the_shipped_config_dtype_resolves_to_a_real_torch_attribute(repo_root) -> None:
+    """The config says `bf16`; torch's attribute is `bfloat16`. **`torch.bf16` DOES NOT EXIST.**
+
+    This is a regression test for a real failure: the pod ran
+    `ValueError: unknown dtype 'bf16'; expected bf16, fp16 or float32` — an error message that
+    rejected the very spelling it listed as valid. Tying `configs/base.yaml` to the loader's
+    alias table means the config cannot drift away from what the loader accepts without failing
+    here, on CPU, instead of on a rented GPU.
+    """
+    import yaml
+
+    from agents.loader import resolve_dtype
+
+    config = yaml.safe_load((repo_root / "configs" / "base.yaml").read_text())
+    dtype = config["dtype"]
+
+    class FakeTorch:
+        bfloat16 = "BF16"
+        float16 = "FP16"
+        float32 = "FP32"
+
+    assert resolve_dtype(FakeTorch, dtype) == "BF16", (
+        f"the shipped config dtype {dtype!r} does not resolve — the loader would reject the "
+        f"value the config ships with"
+    )
+    # Every spelling this project uses, and case-insensitivity.
+    for name, expected in [("bf16", "BF16"), ("bfloat16", "BF16"), ("BF16", "BF16"),
+                           ("fp16", "FP16"), ("float16", "FP16"), (" fp32 ", "FP32")]:
+        assert resolve_dtype(FakeTorch, name) == expected, name
+
+
+@pytest.mark.phase5
+def test_an_unresolvable_dtype_names_the_valid_options() -> None:
+    """The message must list the accepted names — the first version listed the name it refused."""
+    from agents.loader import resolve_dtype
+
+    class FakeTorch:
+        bfloat16 = "BF16"
+
+    with pytest.raises(ValueError, match="unknown dtype") as bad_name:
+        resolve_dtype(FakeTorch, "bfloat")
+    assert "bf16" in str(bad_name.value)
+
+    # A valid name that this torch build happens not to expose is a different error.
+    with pytest.raises(ValueError, match="no torch.float32"):
+        resolve_dtype(FakeTorch, "fp32")

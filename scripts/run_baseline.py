@@ -59,8 +59,14 @@ def failure_class_of(row: dict, terminated: bool) -> str:
 
 
 def run_split(split_path: str, out_dir: str, *, model_label: str, limit: int | None = None,
-              step_budget: int | None = None) -> dict:
-    """Record and score one arm over one split. Returns the batch summary."""
+              step_budget: int | None = None, adapter: str | None = None,
+              model_id: str | None = None, temperature: float | None = None,
+              seed: int | None = None) -> dict:
+    """Record and score one arm over one split. Returns the batch summary.
+
+    `adapter` is what makes A1 scorable at all. Without it every arm runs the BASE model, so a
+    before/after table would compare A0 with itself and still produce a tidy number.
+    """
     from veriloop.contracts.schema import Contract
     from veriloop.env.db import open_world
     from veriloop.env.episode import run_episode
@@ -69,7 +75,7 @@ def run_split(split_path: str, out_dir: str, *, model_label: str, limit: int | N
     from veriloop.rewards.state_verified import reward_from_terms
     from veriloop.rewards.terms import compute_terms
 
-    from agents.loader import build_policy
+    from agents.loader import DEFAULT_MODEL_ID, DEFAULT_TEMPERATURE, build_policy
 
     scenarios = load_scenarios(split_path, limit)
     os.makedirs(out_dir, exist_ok=True)
@@ -79,7 +85,14 @@ def run_split(split_path: str, out_dir: str, *, model_label: str, limit: int | N
     contracts: dict[str, Contract] = {}
     negative_ids: set[str] = set()
 
-    policy = build_policy(step_budget or 12)
+    resolved_temperature = DEFAULT_TEMPERATURE if temperature is None else temperature
+    policy = build_policy(
+        step_budget or 12,
+        model_id=model_id or DEFAULT_MODEL_ID,
+        adapter=adapter,
+        temperature=resolved_temperature,
+        seed=seed,
+    )
 
     with open(trajectories_path, "w") as traj:
         for scenario in scenarios:
@@ -142,6 +155,13 @@ def run_split(split_path: str, out_dir: str, *, model_label: str, limit: int | N
     histogram = Counter(failure_class_of(r, r["terminated"]) for r in rows)
     summary = {
         "arm": model_label,
+        # Provenance: WHICH weights produced these rows. A before/after table whose two rows
+        # cannot be told apart from its own JSON is not evidence — and an adapter forgotten on
+        # the command line looks exactly like A1 scoring well.
+        "model_id": model_id or DEFAULT_MODEL_ID,
+        "adapter": adapter,
+        "temperature": resolved_temperature,
+        "seed": seed,
         "split": os.path.basename(split_path),
         "n": len(rows),
         # Wall-clock across the batch, summed per episode. This is the number that converts
@@ -172,18 +192,54 @@ def print_summary(summary: dict) -> None:
     print(f"  failure histogram          {summary['failure_histogram']}")
 
 
-def main(argv: list[str] | None = None) -> int:
-    """`python scripts/run_baseline.py --split data/splits/E1.jsonl --out outputs/A0`."""
-    parser = argparse.ArgumentParser(description="Record and score one arm over one split.")
+def _parser() -> argparse.ArgumentParser:
+    """The CLI. Exposed as a function so a test can assert its defaults without a GPU.
+
+    `--adapter` is the flag that makes an A0-vs-A1 comparison possible at all; without it
+    `train/sft.py` could produce a checkpoint that nothing could ever score.
+    """
+    from agents.loader import DEFAULT_MODEL_ID, DEFAULT_TEMPERATURE
+
+    parser = argparse.ArgumentParser(
+        description="Record and score one arm over one split.",
+        epilog=(
+            "A0:  --model-label A0\n"
+            "A1:  --model-label A1 --adapter outputs/A1      (the SFT checkpoint)\n"
+            "Both arms must use the same --temperature and --seed, or the difference between "
+            "them is not attributable to the training."
+        ),
+    )
     parser.add_argument("--split", required=True, help="path to a split JSONL")
     parser.add_argument("--out", required=True, help="output directory for this arm")
     parser.add_argument("--model-label", default="A0", help="arm label recorded in the rows")
     parser.add_argument("--limit", type=int, default=None, help="first N scenarios only")
     parser.add_argument("--step-budget", type=int, default=None, help="override the contract's")
-    args = parser.parse_args(argv)
+    parser.add_argument(
+        "--adapter",
+        default=None,
+        help="path to a LoRA/PEFT checkpoint to score instead of the base model (this is A1)",
+    )
+    parser.add_argument("--model-id", default=DEFAULT_MODEL_ID, help="HF repo id")
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=DEFAULT_TEMPERATURE,
+        help="sampling temperature; identical across arms or the comparison is void",
+    )
+    parser.add_argument(
+        "--seed", type=int, default=42, help="sampling seed; fixed by default so a rerun matches"
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    """`python scripts/run_baseline.py --split data/splits/E1.jsonl --out outputs/A0`."""
+    args = _parser().parse_args(argv)
 
     summary = run_split(args.split, args.out, model_label=args.model_label,
-                        limit=args.limit, step_budget=args.step_budget)
+                        limit=args.limit, step_budget=args.step_budget,
+                        adapter=args.adapter, model_id=args.model_id,
+                        temperature=args.temperature, seed=args.seed)
     print_summary(summary)
     return 0
 

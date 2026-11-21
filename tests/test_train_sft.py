@@ -319,3 +319,35 @@ def test_an_unresolvable_dtype_names_the_valid_options() -> None:
     # A valid name that this torch build happens not to expose is a different error.
     with pytest.raises(ValueError, match="no torch.float32"):
         resolve_dtype(FakeTorch, "fp32")
+
+
+@pytest.mark.phase5
+def test_the_baseline_runner_can_score_a_lora_adapter() -> None:
+    """A0 and A1 must BOTH be runnable, or the before/after number cannot exist.
+
+    `build_policy` has accepted `adapter=` since it was written, but `scripts/run_baseline.py`
+    had no way to pass one — so `train/sft.py` could train a checkpoint that nothing in the repo
+    could score, and every arm would silently run the BASE model, producing a tidy before/after
+    table that compared A0 with itself. Asserted here, on CPU, because a mistake of that shape
+    is invisible in the output: it just looks like the base model scoring well.
+    """
+    from agents.loader import DEFAULT_TEMPERATURE
+    from scripts.run_baseline import _parser
+
+    default = _parser().parse_args(["--split", "s", "--out", "o"])
+    assert default.adapter is None, "A0 is the base model: it must pass no adapter"
+    assert default.model_label == "A0"
+    assert default.seed is not None, "eval sampling must be reproducible by default"
+    assert default.temperature == DEFAULT_TEMPERATURE, (
+        "the default temperature must be the loader's own, or a caller could change one arm"
+    )
+
+    a1 = _parser().parse_args(
+        ["--split", "s", "--out", "o", "--model-label", "A1", "--adapter", "outputs/A1"]
+    )
+    assert a1.adapter == "outputs/A1"
+    assert a1.model_label == "A1"
+    assert (a1.temperature, a1.seed) == (default.temperature, default.seed), (
+        "the two arms must share temperature and seed, or the difference between them is not "
+        "attributable to the training"
+    )

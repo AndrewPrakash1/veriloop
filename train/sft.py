@@ -156,9 +156,18 @@ def build_examples(scenarios: list[dict], *, max_steps: int | None = None) -> li
 def fingerprints() -> dict:
     """Recorded into every run config. Without these the run is not reproducible."""
     try:
-        sha = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+        sha = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            text=True,
+            # stderr is NOT inherited: outside a git tree — a tarball on a pod, say — git prints
+            # `fatal: not a git repository` and a run that succeeded end to end looks broken.
+            stderr=subprocess.DEVNULL,
+        ).strip()
     except Exception:                                             # noqa: BLE001
-        sha = "unknown"
+        # An unversioned copy is a provenance fact in its own right, not a failure to look one
+        # up: the tarball is how runs happen on the pod, and "unknown" would hide WHICH copy
+        # produced a result. Named so it is greppable in `outputs/*/train_metrics.json`.
+        sha = "no-git-tree"
     from agents.prompts import SYSTEM
 
     return {

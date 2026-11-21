@@ -44,3 +44,7 @@ The long-form version of the same material lives in `README.md`, `PLAN.md` and
   in whenever that section next gets edited — an append just for this is noise.
 - The long-form tree, the ownership table and the fill order live in
   `~/Documents/veriloop/STRUCTURE.md`.
+- **§14 (appended 21 Nov 2026) supersedes §6's formula.** The page is append-only, so §6
+  still shows the old `0.1·S` term, which is now known to be a bug — see the appended
+  section for the correction, the renormalised weights, and the first MEASURED audit table.
+  Fold the numbers back into §6 whenever that section is next edited by hand.

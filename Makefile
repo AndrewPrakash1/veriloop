@@ -22,6 +22,7 @@ ci:               ## THE GATE. Grows one phase at a time as each lands.
 	@$(PY) scripts/heal_rehearsal.py --out /tmp/veriloop-heal-rehearsal > /dev/null
 	@$(PY) -m pytest tests/test_eval.py -m phase4 -p no:cacheprovider
 	@$(PY) -m pytest tests/test_train_sft.py -m phase5 -p no:cacheprovider
+	@$(PY) -m pytest tests/test_train_rl.py -m phase6 -p no:cacheprovider
 test-imports:     ## structural tests — always green, catch the design bugs
 	@$(PY) -m pytest tests/test_imports.py -v -p no:cacheprovider
 
@@ -48,6 +49,9 @@ test-eval:        ## phase 4 — the CPU-side evaluator. No GPU, no model, no ki
 
 test-heal:        ## phase 7 — the self-healing loop. No GPU, no model needed.
 	@$(PY) -m pytest tests/test_heal.py -m phase7 -v -p no:cacheprovider
+
+test-rl:          ## phase 6 — the RL trainer's arithmetic and guards. No GPU needed.
+	@$(PY) -m pytest tests/test_train_rl.py -m phase6 -v -p no:cacheprovider
 
 audit:            ## the pre-GPU evidence: score every attack under both rewards
 	@$(PY) scripts/run_audit.py --out audit/reward_hackability.json

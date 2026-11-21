@@ -14,10 +14,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any, Sequence
 
-from veriloop.eval.report import UNMEASURED, markdown_table
+# Run as a SCRIPT (`make report` -> `python artifacts/build_report.py`), so the repo root is not
+# on sys.path and `import veriloop` fails. Every other script in this repo bootstraps it the
+# same way; this one was written first with the import at the top and `make report` was broken
+# until the failure was actually executed rather than assumed.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from veriloop.eval.report import UNMEASURED, markdown_table  # noqa: E402
 
 #: The arms PLAN.md §5 pre-registers. A0 is the base model, A1 the SFT adapter, A2/A2b the
 #: claim-verified comparison, A3/A4 the state-verified arms under test.

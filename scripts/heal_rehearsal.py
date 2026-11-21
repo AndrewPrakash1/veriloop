@@ -79,11 +79,23 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--per-class", type=int, default=6)
     ap.add_argument("--per-template", type=int, default=PER_TEMPLATE)
     ap.add_argument("--margin", type=float, default=0.02)
+    ap.add_argument("--keep-records", action="store_true",
+                    help="do not clear this rehearsal's own rounds.jsonl first")
     ap.add_argument("--trap-tolerance", type=float, default=0.01)
     args = ap.parse_args(argv)
 
     print("REHEARSAL — scripted policies, no model, no GPU. Every number below measures a")
     print("scripted route, NOT a trained model.\n")
+
+    if not args.keep_records:
+        # A REHEARSAL is repeatable, so it starts from an empty record set. This does NOT relax
+        # `heal_round`'s append-only guarantee — that is asserted in test_heal.py — but without
+        # it, `make ci` twice leaves four round records in the same directory and anything
+        # aggregating them (artifacts/build_report.py) silently double-counts.
+        stale = Path(args.out) / "heal" / "rounds.jsonl"
+        if stale.exists():
+            stale.unlink()
+            print(f"cleared this rehearsal's previous record at {stale}\n")
 
     e1 = scenarios_for("E1", args.per_template)
     e3 = scenarios_for("E3", args.per_template)

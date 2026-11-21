@@ -54,14 +54,22 @@ def markdown_table(rows: Sequence[Mapping[str, Any]], *, title: str | None = Non
     when at least one row carries one — so a table with no predictions does not advertise an
     empty column, and a table WITH predictions cannot hide them next to a measurement.
     """
+    # These are computed ONCE and used for both the header and the cells. The first version
+    # appended the header text "Δ" and then tested `if "delta" in header` when writing cells,
+    # which is never true — so every row was one column short of its own header and the Note
+    # rendered under Δ. A renderer that can misalign its own columns silently corrupts the one
+    # artefact a reviewer reads.
     has_prediction = any(r.get("prediction") is not None for r in rows)
+    has_delta = any(r.get("delta") is not None or (
+        r.get("before") is not None and r.get("after") is not None) for r in rows)
+
     header = ["Metric", *[c.capitalize() for c in columns]]
-    if "delta" in columns or any(r.get("delta") is not None for r in rows):
-        if "delta" not in columns:
-            header.append("Δ")
+    if has_delta and "delta" not in columns:
+        header.append("Δ")
     if has_prediction:
         header.append("Predicted (not a run)")
-    if any(r.get("note") for r in rows):
+    show_note = any(r.get("note") for r in rows)
+    if show_note:
         header.append("Note")
 
     lines = [f"### {title}" if title else "", ""] if title else []
@@ -72,7 +80,7 @@ def markdown_table(rows: Sequence[Mapping[str, Any]], *, title: str | None = Non
         cells = [str(r.get("metric", ""))]
         for c in columns:
             cells.append(_cell(r.get(c)))
-        if "delta" in header:
+        if has_delta and "delta" not in columns:
             cells.append(_delta_cell(r.get("delta") if "delta" in r else _auto_delta(r),
                                      r.get("direction")))
         if has_prediction:
@@ -82,8 +90,13 @@ def markdown_table(rows: Sequence[Mapping[str, Any]], *, title: str | None = Non
             else:
                 src = r.get("prediction_source")
                 cells.append(f"{_cell(pred)}" + (f" ({src})" if src else ""))
-        if "Note" in header:
+        if show_note:
             cells.append(str(r.get("note") or ""))
+        # A row must have exactly one cell per header column. If this ever fires, the table is
+        # unreadable in a way that looks like data rather than a bug.
+        assert len(cells) == len(header), (
+            f"row {r.get('metric')!r} produced {len(cells)} cells for {len(header)} columns"
+        )
         lines.append("| " + " | ".join(cells) + " |")
 
     return "\n".join(line for line in lines if line is not None)

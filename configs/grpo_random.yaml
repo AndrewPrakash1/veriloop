@@ -4,7 +4,11 @@ stage: rl
 algorithm: grpo            # RLOO is the fallback if GRPO is unstable at 3B
 init_adapter: outputs/A1_sft
 data:
-  file: data/splits/train_rl.jsonl     # filtered to scenarios the SFT model solves 10-90% of the time
+  # !! UNFILTERED TODAY. `make splits` writes train_rl.jsonl as a copy of train with
+  # `rl_filtered: false` on every row, because the 10-90% band needs an SFT pass-rate
+  # probe that does not exist yet (Phase 5). Training on it works, but the arm is then
+  # training on the wide set — say so in the write-up instead of calling it filtered.
+  file: data/splits/train_rl.jsonl
 reward_funcs: veriloop.rewards.registry.random_reward
 rollout_group_size: 8
 steps: 300

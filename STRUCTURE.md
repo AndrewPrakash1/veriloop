@@ -91,7 +91,7 @@ Each step is runnable before the next one exists.
 | 2 | `contracts/schema.py`, `validate.py`, `resolve.py` | `make test-contracts` | the two example contracts validate; a bad one is rejected |
 | 3 | `rewards/terms.py`, `state_verified.py`, `claim_verified.py` | `make test-reward` | the compliant transcript scores 1.0; every cheat ≤ 0.1 |
 | 4 | `audit/attacks.yaml` → `scripts/run_audit.py` | `make audit` | write `audit/reward_hackability.json` |
-| 5 | `gen/synth.py` + `gen/templates/*` | `make splits` | write `data/` + manifest + checksums |
+| 5 | `gen/synth.py` + `gen/templates/*` | `make splits` | ✅ DONE — 500 scenarios, every gold route scores 1.0, manifest + checksums written |
 | 6 | `eval/harness.py`, `metrics.py`, `stats.py` | `make baseline` | write the base row for E1–E4 |
 | 7 | `train/sft.py` | `make sft` | a checkpoint that emits parseable calls >95% |
 | 8 | `train/rl.py` + `configs/grpo_*.yaml` | `make rl ARM=state` | one arm with an eval row |

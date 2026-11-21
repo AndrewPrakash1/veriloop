@@ -269,6 +269,40 @@ def reward_of(funcs: list[Callable], rollout: dict) -> float:
     return total_reward(funcs, rollout["result"], rollout["contract"])
 
 
+def require_trainable(tensors: list) -> list:
+    """Refuse to build an optimizer over nothing.
+
+    An adapter loaded with `is_trainable=False` (or a model whose LoRA layers were never
+    injected) leaves every tensor frozen. `torch.optim.AdamW([])` accepts that happily, `.step()`
+    is a no-op, and the run prints a falling loss because the forward pass still runs — a
+    training run that trains nothing and looks like it worked. There is no way to notice it
+    from the log, so it is a hard stop here.
+    """
+    if not tensors:
+        raise SystemExit(
+            "no trainable parameters. The adapter is frozen or was never injected — check "
+            "`is_trainable=True` on PeftModel.from_pretrained, or that get_peft_model ran "
+            "after prepare_model_for_kbit_training."
+        )
+    return tensors
+
+
+def _enable_checkpointing(model: Any) -> None:
+    """Re-enable gradient checkpointing AFTER the adapter is attached, and fail soft.
+
+    `prepare_model_for_kbit_training` turns it on for the base, but wrapping the model in a
+    PeftModel afterwards replaces the modules it configured. Missing this is not a crash: it
+    is a 3B model trying to hold every activation for a 2048-token sequence, which is an OOM
+    twenty minutes into a paid run.
+    """
+    for call in ("enable_input_require_grads", "gradient_checkpointing_enable"):
+        try:
+            getattr(model, call)()
+        except Exception:                                         # noqa: BLE001
+            pass
+    model.config.use_cache = False
+
+
 # ---------------------------------------------------------------------------- train -----
 def train(args: argparse.Namespace) -> dict:
     import torch
@@ -327,9 +361,9 @@ def train(args: argparse.Namespace) -> dict:
     torch.manual_seed(args.seed)
 
     tokenizer = load_tokenizer(model_id)
-    model = load_model(model_id, adapter=init_adapter, dtype=dtype)
 
     if args.probe:
+        model = load_model(model_id, adapter=init_adapter, dtype=dtype)
         # TRAP 1: seed=None. `ModelPolicy._generate` re-seeds before EVERY call, so a fixed
         # seed makes all G rollouts of a group the identical episode, every advantage exactly
         # 0.0, and training does nothing while printing a falling loss.
@@ -337,19 +371,29 @@ def train(args: argparse.Namespace) -> dict:
                               temperature=temperature, seed=None)
         return probe(policy, scenarios, group_size, max_steps, args, funcs)
 
-    from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
+    from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
 
+    # The TRAIN path loads the BASE and attaches the adapter itself, as TRAINABLE. This
+    # matters: `load_model(adapter=...)` wraps the checkpoint with `is_trainable=False`, which
+    # freezes every LoRA weight. `AdamW` over an empty parameter list then does nothing at all
+    # while the log prints a falling loss, so the run looks like it trained.
+    model = load_model(model_id, adapter=None, dtype=dtype)
     model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=True)
-    lora = config.get("lora") or {}
-    model = get_peft_model(model, LoraConfig(
-        r=int(lora.get("r", 16)),
-        lora_alpha=int(lora.get("alpha", 32)),
-        lora_dropout=float(lora.get("dropout", 0.05)),
-        target_modules=list(lora.get("target_modules", ["q_proj", "k_proj", "v_proj", "o_proj"])),
-        task_type="CAUSAL_LM",
-    ))
+    if init_adapter:
+        model = PeftModel.from_pretrained(model, init_adapter, is_trainable=True)
+    else:
+        lora = config.get("lora") or {}
+        model = get_peft_model(model, LoraConfig(
+            r=int(lora.get("r", 16)),
+            lora_alpha=int(lora.get("alpha", 32)),
+            lora_dropout=float(lora.get("dropout", 0.05)),
+            target_modules=list(lora.get("target_modules",
+                                         ["q_proj", "k_proj", "v_proj", "o_proj"])),
+            task_type="CAUSAL_LM",
+        ))
+    _enable_checkpointing(model)
     model.print_trainable_parameters()
-    trainable = [p for p in model.parameters() if p.requires_grad]
+    trainable = require_trainable([p for p in model.parameters() if p.requires_grad])
     optimizer = torch.optim.AdamW(trainable, lr=lr)
 
     policy = build_policy(max_steps, model=model, tokenizer=tokenizer,

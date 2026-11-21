@@ -109,6 +109,22 @@ def test_rewards_are_summed_over_the_arm_s_terms() -> None:
     assert total_reward(funcs, episode=None, contract=None) == pytest.approx(-0.75)
 
 
+def test_an_empty_parameter_list_is_refused_rather_than_optimised() -> None:
+    """A frozen adapter trains nothing and looks exactly like a successful run.
+
+    `load_model(adapter=...)` wraps a checkpoint with `is_trainable=False`; `AdamW([])` accepts
+    that, `.step()` is a no-op, and the forward pass still prints a falling loss. Nothing in
+    the log distinguishes it from real training, so the empty case must be a hard stop.
+    """
+    from train.rl import require_trainable
+
+    with pytest.raises(SystemExit, match="no trainable parameters"):
+        require_trainable([])
+
+    sentinel = [object()]
+    assert require_trainable(sentinel) is sentinel
+
+
 # ------------------------------------------------------------------ the split guard -----
 @pytest.mark.parametrize("name", ["data/splits/E3.jsonl", "/workspace/veriloop/data/splits/E3.jsonl"])
 def test_training_on_e3_is_refused(name: str) -> None:

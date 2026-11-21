@@ -21,6 +21,7 @@ ci:               ## THE GATE. Grows one phase at a time as each lands.
 	@$(PY) -m pytest tests/test_heal.py -m phase7 -p no:cacheprovider
 	@$(PY) scripts/heal_rehearsal.py --out /tmp/veriloop-heal-rehearsal > /dev/null
 	@$(PY) -m pytest tests/test_eval.py -m phase4 -p no:cacheprovider
+	@$(PY) -m pytest tests/test_train_sft.py -m phase5 -p no:cacheprovider
 test-imports:     ## structural tests — always green, catch the design bugs
 	@$(PY) -m pytest tests/test_imports.py -v -p no:cacheprovider
 

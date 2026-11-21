@@ -59,6 +59,48 @@ def _fmt(value: Any, limit: int) -> str:
     return text
 
 
+def render_turn(
+    observation: Mapping[str, Any],
+    *,
+    max_steps: int = 12,
+    observation_chars: int = DEFAULT_OBSERVATION_CHARS,
+) -> str:
+    """Build the single user turn for one step.
+
+    Module-level and TORCH-FREE on purpose: `train/sft.py` renders its training prompts with
+    THIS function, so the format a model is trained on is byte-identical to the format it is
+    scored on. A second prompt builder living in `train/` is how a model learns a task that
+    nobody evaluates.
+
+    See the module docstring: tool results are TEXT, prefixed `Observation:` (Tiny Aya's chat
+    template drops `tool` messages), and long results are truncated so a 12-step episode cannot
+    walk out of the model's 8K window.
+    """
+    parts = [
+        SYSTEM.format(brief=observation.get("brief", "")),
+        STEP_BUDGET_NOTE.format(budget=max_steps),
+        "",
+        "Tools you may call:",
+        prompt_block(),
+    ]
+    for record in observation.get("history") or []:
+        parts.append("")
+        parts.append(f"Action: {record.get('tool', '')}({_fmt(record.get('args'), 300)})")
+        if record.get("ok"):
+            parts.append(f"Observation: {_fmt(record.get('output'), observation_chars)}")
+        else:
+            parts.append(f"Observation: ERROR — {_fmt(record.get('error'), observation_chars)}")
+    if not observation.get("history"):
+        parts.append("")
+        parts.append("No tool calls have been made yet.")
+    parts.append("")
+    parts.append(
+        'Reply with ONE JSON object and nothing else, e.g. '
+        '{"tool": "lookup_customer", "args": {"customer_id": "c60000"}}'
+    )
+    return "\n".join(parts)
+
+
 def _make_stopping_criteria(torch: Any) -> Any:
     """Build the `StoppingCriteria` class against an already-imported torch.
 
@@ -136,32 +178,12 @@ class ModelPolicy:
 
     # ------------------------------------------------------------------ rendering --------
     def render(self, observation: Mapping[str, Any]) -> str:
-        """Build the single user turn. See the module docstring, points 1 and 3."""
-        parts = [
-            SYSTEM.format(brief=observation.get("brief", "")),
-            STEP_BUDGET_NOTE.format(budget=self.max_steps),
-            "",
-            "Tools you may call:",
-            prompt_block(),
-        ]
-        for record in observation.get("history") or []:
-            parts.append("")
-            parts.append(f"Action: {record.get('tool', '')}({_fmt(record.get('args'), 300)})")
-            if record.get("ok"):
-                parts.append(f"Observation: {_fmt(record.get('output'), self.observation_chars)}")
-            else:
-                parts.append(
-                    f"Observation: ERROR — {_fmt(record.get('error'), self.observation_chars)}"
-                )
-        if not observation.get("history"):
-            parts.append("")
-            parts.append("No tool calls have been made yet.")
-        parts.append("")
-        parts.append(
-            'Reply with ONE JSON object and nothing else, e.g. '
-            '{"tool": "lookup_customer", "args": {"customer_id": "c60000"}}'
+        """The exact prompt for this turn: `render_turn` with this policy's settings."""
+        return render_turn(
+            observation,
+            max_steps=self.max_steps,
+            observation_chars=self.observation_chars,
         )
-        return "\n".join(parts)
 
     # ----------------------------------------------------------------- generation --------
     def _generate(self, prompt: str) -> str:

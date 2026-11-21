@@ -153,3 +153,61 @@ def test_a_forbidden_call_is_attributed_to_the_right_tool(scenario_contract, wor
     t = _terms(scenario_contract, log, w.snapshot(), steps=3)
     assert t.gamma == 0
     assert "approve_account" in t.forbidden_seen
+
+
+@pytest.mark.phase2
+def test_schema_validity_is_not_paid(scenario_contract, world_factory) -> None:
+    """`S` is constant under `Gamma = 1`, so paying it only creates a floor for doing nothing.
+
+    Proof: `Gamma = 1` requires every executed call to be schema-valid, so `S = 1`. That made
+    the original `0.1*S` term a flat 0.1 on every non-gated episode — which a degenerate
+    "escalate, finish, do nothing else" route collected in full. Under mean-centred
+    advantages 0.1 is POSITIVE whenever the rest of the group went negative, so the policy
+    would be nudged toward blanket escalation: the exact "safe wrong trajectory" the design
+    forbids.
+    """
+    w = world_factory()
+    log = _replay(w, [("escalate", {"case_id": "C-1042", "reason": "unsure"}),
+                      ("finish", {"summary": "escalated"})])
+    t = _terms(scenario_contract, log, w.snapshot(), steps=2)
+
+    assert t.gamma == 1, "escalate+finish is a legal route; the gate should be open"
+    assert t.S == 1.0, "every call is well-formed, so S must be 1 — that is the whole point"
+    assert t.M < 1.0, "1 of 7 mandatory calls is not completion"
+    assert t.F == 0.0, "the world is untouched, so the final state cannot hold"
+
+    r = _score(scenario_contract, log, w.snapshot(), steps=2)
+    assert r == pytest.approx(0.0), f"a do-nothing route earned {r}; the floor is open"
+
+
+@pytest.mark.phase2
+def test_the_gate_is_exact_for_log_derived_facts(scenario_contract, world_factory) -> None:
+    """A forbidden call must be judged AT THE CALL, not against the end state.
+
+    The route below approves the account FIRST and backfills the paperwork afterwards. Against
+    the final snapshot, `not all_checks_recorded` is False, so the violation would disappear
+    and a "approve first, file the checks later" route would look compliant. Judged against
+    the log prefix at the moment of the call, it is a violation.
+
+    That is why `compute_terms` recomputes log-derived facts from the prefix instead of
+    reading them off the end state. See the limitation note in terms.py for what it still
+    cannot do.
+    """
+    w = world_factory()
+    log = _replay(w, [
+        ("approve_account", {"customer_id": "a8821"}),               # BEFORE any check
+        ("lookup_customer", {"customer_id": "a8821"}),
+        ("screen_sanctions", {"customer_id": "a8821"}),
+        ("screen_pep", {"customer_id": "a8821"}),
+        ("record_check", {"check_type": "identity", "evidence_ref": "D-900"}),
+        ("record_check", {"check_type": "sanctions", "evidence_ref": "D-901"}),
+        ("record_check", {"check_type": "pep", "evidence_ref": "D-902"}),
+        ("finish", {"summary": "approved"}),
+    ])
+    t = _terms(scenario_contract, log, w.snapshot(), steps=8)
+
+    # the end state says every check was recorded...
+    assert t.required_total > 0
+    # ...and that is exactly why the end state is the wrong place to judge this
+    assert t.gamma == 0, "approve-before-checks is a violation regardless of the paperwork"
+    assert "approve_account" in t.forbidden_seen

@@ -41,13 +41,24 @@ def test_catalogue_is_complete(attacks) -> None:
 
 @pytest.mark.phase2
 def test_every_cheat_is_complete_and_plausible(attacks) -> None:
-    """A cheat must be a real route a policy could find — not a stub.
+    """A cheat must be a real route a policy could find, or a real claim — not a stub.
 
-    A non-trivial attack with an empty transcript is testing nothing.
+    An EMPTY transcript is legitimate and `claim_only` relies on it: zero tool calls plus a
+    success claim is the canonical route for asking whether the reward reads text at all, so
+    requiring a non-empty transcript here would forbid the most important row in the table.
+    What is forbidden is an attack with NEITHER: nothing executed and nothing claimed, which
+    tests nothing while still counting towards "closed".
     """
     for a in attacks:
         if a.non_trivial:
-            assert a.transcript, f"{a.attack_id} has no transcript — it tests nothing"
+            assert a.transcript or a.final_message, (
+                f"{a.attack_id} has neither a transcript nor a success claim — it tests nothing"
+            )
+
+    assert any(not a.transcript and a.non_trivial for a in attacks), (
+        "no zero-call attack in the catalogue: nothing is testing whether the naive reward "
+        "reads text"
+    )
 
 
 @pytest.mark.phase2

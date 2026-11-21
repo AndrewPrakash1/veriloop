@@ -44,5 +44,8 @@ final_state:
   - {table: checks,    op: "count>=3", assertions: {case_id: "$case.case_id"}}
 
 step_budget: 12
-min_steps: 7
+# The true minimum: 7 mandatory calls + the terminal `finish`. A min_steps below this
+# hands the efficiency term a free bonus; above it, the term is unearnable and a
+# perfect episode can never score 1.0.
+min_steps: 8
 requires_terminal: true

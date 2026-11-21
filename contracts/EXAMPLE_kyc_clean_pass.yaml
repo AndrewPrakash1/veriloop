@@ -36,5 +36,5 @@ final_state:
   - {table: checks,   op: "count>=2", assertions: {case_id: "$case.case_id"}}
 
 step_budget: 9
-min_steps: 5
+min_steps: 6      # 5 mandatory calls + the terminal `finish`
 requires_terminal: true

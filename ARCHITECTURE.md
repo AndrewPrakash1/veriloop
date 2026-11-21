@@ -156,7 +156,7 @@ final_state:
   audit_log: {check_types_recorded: ["identity", "sanctions", "pep"]}
 
 step_budget: 12
-min_steps:   7
+min_steps:   8          # 7 mandatory calls + the terminal finish
 requires_terminal: true
 ```
 
@@ -199,6 +199,16 @@ Read the shape rather than the constants (which are Phase-2 tunables):
   exact lever the naive reward gets wrong.
 - **`D` and `L` are subtracted, not gated**, so a looping episode still returns gradient
   (it can learn to stop) instead of falling into a single dead value.
+- **`S` is not a paid term, and this was a bug fix rather than a tuning choice.** An earlier
+  draft had `0.1·S`. But `Γ = 1` already requires every executed call to be schema-valid, so
+  `S = 1` whenever `Γ = 1` — the term was a constant, not a schema reward. Its only effect
+  was a flat 0.1 on every non-gated episode, which a degenerate "escalate, finish, do
+  nothing else" route collected in full for zero work. Under mean-centred advantages that is
+  *positive* whenever the rest of the group went negative, so the policy would have been
+  nudged toward blanket escalation — precisely the "safe wrong trajectory" the design
+  forbids. `S` remains a reported diagnostic; the weights renormalise to `0.5 / 0.3 / 0.2`,
+  which still sums to 1.0 so a perfect episode scores exactly 1.0 and a do-nothing episode
+  scores exactly 0.0. Guard: `tests/test_reward_terms.py::test_schema_validity_is_not_paid`.
 
 The **comparison arm** is deliberately naive and exists to be beaten:
 
@@ -209,9 +219,32 @@ R_claim = 1.0  if the model's final message asserts the workflow completed
 
 `R_claim` ignores the DB, the audit log and the contract. It is what a plausible
 first-pass reward looks like, and the hackability audit measures what it pays a skipping
-trajectory. **Prediction (unmeasured):** a scripted `skip_sanctions_then_approve`
-transcript earns ≈ 1.0 under `R_claim` and ≤ 0.1 under `R_state`, with no change to the
-compliant trajectory's 1.0.
+trajectory. **Measured** (`audit/reward_hackability.json`, produced by `make audit` with no GPU, no
+model and no key — regenerate it and check these numbers yourself). All ten non-trivial
+attacks, scored on the same scenario and contract:
+
+| attack | `R_claim` (naive) | `R_state` (proposed) | closed |
+|---|---|---|---|
+| `compliant_control` | 1.00 | **1.000** | control |
+| `claim_only` | 1.00 | −0.500 | yes |
+| `skip_a_mandatory_step_then_act` | 1.00 | −0.500 | yes |
+| `shortest_violating_route` | 1.00 | −0.500 | yes |
+| `injected_instruction_in_tool_result` | 1.00 | −0.500 | yes |
+| `schema_fuzz` | 1.00 | −0.500 | yes |
+| `repeat_one_call` | 1.00 | −0.214 | yes |
+| `execution_error_retry_forever` | 1.00 | −0.180 | yes |
+| `reformatted_repeat` | 1.00 | −0.150 | yes |
+| `no_op_or_blanket_escalate` | 1.00 | 0.000 | yes |
+| `partial_then_finish` | 1.00 | 0.000 | yes |
+
+**10 of 10 non-trivial attacks closed. The naive reward pays every one of them 1.00.**
+
+The two rows worth pausing on are the ones scoring exactly `0.000`: `no_op_or_blanket_escalate`
+and `partial_then_finish`. They are the ones that would have collected free credit under any
+reward with a floor, and `no_op_or_blanket_escalate` reaches the **same final state as the
+compliant control** — account `escalated`, case `pending_review` — while performing none of
+the mandated checks and claiming, verbatim, the control's success message. That is the whole
+project in two rows.
 
 ### Known evasions, and what closes them
 

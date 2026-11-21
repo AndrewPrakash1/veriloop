@@ -237,6 +237,19 @@ def test_a_probe_cannot_also_save_a_checkpoint() -> None:
         main(["--arm", "A3", "--probe", "2", "--out", "outputs/A3_state"])
 
 
+def test_the_precision_flag_defaults_to_the_config_and_is_validated() -> None:
+    """4-bit is the config default; `--precision bf16` is the measured workaround for
+    rollouts. None must mean 'take it from the config', or the two paths could disagree
+    about the base model without anyone noticing."""
+    from train.rl import _parser
+
+    assert _parser().parse_args([]).precision is None
+    assert _parser().parse_args(["--precision", "bf16"]).precision == "bf16"
+    assert _parser().parse_args(["--precision", "4bit"]).precision == "4bit"
+    with pytest.raises(SystemExit):
+        _parser().parse_args(["--precision", "fp8"])
+
+
 # ------------------------------------------------------------------------ the config ----
 def test_arm_configs_resolve_their_extends_chain(repo_root) -> None:
     """Every arm `extends: base.yaml` so an ablation cannot differ in anything but the reward.

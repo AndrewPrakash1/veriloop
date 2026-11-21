@@ -334,6 +334,13 @@ def train(args: argparse.Namespace) -> dict:
     lr = args.lr if args.lr is not None else float(config.get("lr", 1e-6))
     model_id = args.model_id or str(config.get("model", "CohereLabs/tiny-aya-global"))
     dtype = str(config.get("dtype", "bf16"))
+    # 4-bit is the config default because it is the cheapest way to LOAD. It is not the
+    # cheapest way to ROLL OUT: bitsandbytes NF4 makes transformers fall back to eager
+    # attention, and the measured cost was 7.1 s per generation (~56.75 s per 8-turn
+    # episode). RL spends nearly all its time generating, so bf16 is the better trade here
+    # even though it costs ~7 GB more VRAM.
+    use_4bit = (args.precision == "4bit") if args.precision else bool(
+        config.get("load_in_4bit", True))
 
     init_adapter = args.init_adapter or config.get("init_adapter")
     if init_adapter and not os.path.isdir(init_adapter):
@@ -350,6 +357,7 @@ def train(args: argparse.Namespace) -> dict:
     print("=" * 74)
     print(f"arm {arm}   reward: {[getattr(f, '__name__', repr(f)) for f in funcs]}")
     print(f"data {data_file} ({len(scenarios)} scenarios)   adapter: {init_adapter or '(BASE)'}")
+    print(f"base precision: {'4-bit NF4' if use_4bit else 'bf16 (faster rollouts, ~7 GB more)'}")
     if args.probe:
         print(f"PROBE: {args.probe} prompt(s) x {group_size} rollouts, no optimizer, no save")
     else:
@@ -363,7 +371,7 @@ def train(args: argparse.Namespace) -> dict:
     tokenizer = load_tokenizer(model_id)
 
     if args.probe:
-        model = load_model(model_id, adapter=init_adapter, dtype=dtype)
+        model = load_model(model_id, adapter=init_adapter, dtype=dtype, load_in_4bit=use_4bit)
         # TRAP 1: seed=None. `ModelPolicy._generate` re-seeds before EVERY call, so a fixed
         # seed makes all G rollouts of a group the identical episode, every advantage exactly
         # 0.0, and training does nothing while printing a falling loss.
@@ -377,8 +385,11 @@ def train(args: argparse.Namespace) -> dict:
     # matters: `load_model(adapter=...)` wraps the checkpoint with `is_trainable=False`, which
     # freezes every LoRA weight. `AdamW` over an empty parameter list then does nothing at all
     # while the log prints a falling loss, so the run looks like it trained.
-    model = load_model(model_id, adapter=None, dtype=dtype)
-    model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=True)
+    model = load_model(model_id, adapter=None, dtype=dtype, load_in_4bit=use_4bit)
+    if use_4bit:
+        model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=True)
+    # else: a bf16 base needs no k-bit preparation — the LoRA wrap freezes the base itself
+    # and `_enable_checkpointing` below installs the hooks a frozen base requires.
     if init_adapter:
         model = PeftModel.from_pretrained(model, init_adapter, is_trainable=True)
     else:
@@ -501,6 +512,7 @@ def train(args: argparse.Namespace) -> dict:
         "lr": lr,
         "seed": args.seed,
         "temperature": temperature,
+        "load_in_4bit": use_4bit,
         "history": history,
         "first_mean_reward": history[0]["mean_reward"] if history else None,
         "final_mean_reward": history[-1]["mean_reward"] if history else None,
@@ -632,6 +644,17 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-length", type=int, default=2048)
     parser.add_argument("--max-episode-steps", type=int, default=None,
                         help="tool-call budget per episode (default: the contract's)")
+    parser.add_argument(
+        "--precision",
+        choices=["4bit", "bf16"],
+        default=None,
+        help=(
+            "base-model precision. '4bit' (the config default) needs less VRAM but "
+            "bitsandbytes NF4 forces eager attention, which measured 7.1 s per generation "
+            "on a sliced 5090. 'bf16' needs ~7 GB more and is several times faster per "
+            "token — the right trade for a rollout-heavy RL run."
+        ),
+    )
     parser.add_argument("--model-id", default=None)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--save-every", type=int, default=10)
